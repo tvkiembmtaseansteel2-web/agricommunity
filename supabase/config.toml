@@ -1,0 +1,9 @@
+# Cấu hình Supabase project (dùng cho supabase CLI + deploy Edge Functions)
+project_id = "gjavupiyrnuwtersagnw"
+
+[functions.kb-crawler]
+# verify_jwt: giữ FALSE vì pg_cron gọi nội bộ không có JWT người dùng.
+# NHƯNG function đã tự xác thực bằng secret header `x-crawler-secret`
+# (so sánh với CRAWLER_SECRET) — chặn người lạ kích hoạt crawl.
+verify_jwt = false
+enabled = true

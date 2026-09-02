@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Environment — TUYỆT ĐỐI không commit các file chứa API key
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+.DS_Store
+
+# Vercel / Netlify
+.vercel/
+.netlify/
+
+# Supabase CLI local state (chứa linked-project.json, pooler-url — thông tin kết nối nội bộ)
+supabase/.temp/
+supabase/.branches/
+
+# Playwright test artifacts
+test-results/
+playwright-report/

@@ -1,0 +1,19 @@
+{
+  "name": "AgriCommunity - Nông nghiệp cộng đồng",
+  "short_name": "AgriCommunity",
+  "description": "Nhật ký nông vụ, Bác sĩ cây trồng AI và cộng đồng nông dân cà phê, sầu riêng, hồ tiêu",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f9f6",
+  "theme_color": "#2e7d32",
+  "lang": "vi",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
