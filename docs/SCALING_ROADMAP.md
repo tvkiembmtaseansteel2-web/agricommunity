@@ -36,8 +36,7 @@
 
 ### Giai đoạn 0–100 user (hiện tại)
 - ✅ RLS + soft-delete đã có.
-- 🔲 **Backup PG dump hàng ngày** ra file (lưu ở Supabase Storage riêng / Google Drive).
-  → Lưới an toàn chống mất do hạn mức hoặc xóa project.
+- ✅ **Backup PG dump tự động** — GitHub Actions cron `.github/workflows/db-backup.yml` chạy hằng ngày (02:30 UTC), lưu Artifact `supabase-backup` (30 ngày). Xem mục "Backup" bên dưới.
 - 🔲 **Export CSV** cho user (nhật ký, sản lượng) — tính năng + lưới an toàn người dùng.
 
 ### Giai đoạn 100–1000 user
@@ -63,6 +62,35 @@
 | **Gemini API** | **Đáng chú ý nhất** — trả theo số request AI Doctor |
 
 → Ưu tiên tối ưu chi phí: giới hạn/cache **Gemini** (AI Doctor) trước tiên.
+
+---
+
+## 🗄️ Backup & Restore (Blocker #2)
+
+### Backup tự động (GitHub Actions cron)
+- File: `.github/workflows/db-backup.yml` — chạy **02:30 UTC hằng ngày** (+ chạy tay qua "Run workflow").
+- Lệnh: `pg_dump` toàn DB → gzip → **Artifact `supabase-backup`** (giữ 30 ngày, tải từ **Actions → Artifacts**).
+- Script thủ công (máy có `pg_dump`): `scripts/backup-supabase.sh`.
+
+### CẤU HÌNH 1 LẦN (bắt buộc để chạy):
+Thêm **GitHub Secret**:
+```
+Name:  SUPABASE_DB_PASSWORD
+Value: <mật khẩu database>  ← Supabase Dashboard → Settings → Database → Connection → Database password
+```
+Reference id: `gjavupiyrnuwtersagnw` (pooler `aws-0-ap-northeast-2.pooler.supabase.com`).
+> ⚠️ KHÔNG commit mật khẩu này vào repo. Chỉ dùng qua Secret.
+
+### Khôi phục (restore)
+Tải `.sql.gz` từ Artifact về rồi:
+```bash
+gunzip -c agri_gjavupiyrnuwtersagnw_20XX.sql.gz | psql "postgresql://postgres.<ref>:<DB_PASSWORD>@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres"
+```
+> ⚠️ Thao tác này **ghi đè lên DB đang chạy** — chỉ chạy khi thật sự cần khôi phục. Nên test trên môi trường tách trước.
+
+### Ghi chú
+- Backup này là **lưới an toàn bổ sung** cho native backup (Supabase giữ 7 ngày).
+- Muốn **PITR** (phục hồi bất kỳ thời điểm) → lên **Supabase Pro** (~$25/tháng) khi >1000 user.
 
 ---
 

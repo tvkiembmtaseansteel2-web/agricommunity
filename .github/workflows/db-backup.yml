@@ -1,0 +1,61 @@
+name: DB Backup — AgriCommunity
+
+# Backup chủ động database Supabase mỗi ngày (miễn phí, tự động).
+# Kết quả lưu thành Artifact "supabase-backup" (tải từ Actions → Artifacts).
+#
+# CẦN CẤU HÌNH 1 LẦN:
+#   Settings → Secrets and variables → Actions → New repository secret
+#     Name:  SUPABASE_DB_PASSWORD
+#     Value: <mật khẩu database Supabase> (Dashboard → Settings → Database → Connection → Database password)
+#
+# Reference id của dự án: gjavupiyrnuwtersagnw (pooler aws-0-ap-northeast-2).
+
+on:
+  schedule:
+    # Chạy mỗi ngày 02:30 UTC (≈ 09:30 giờ VN), tùy chỉnh cron nếu muốn.
+    - cron: '30 2 * * *'
+  workflow_dispatch: {}   # cho phép chạy tay (thử ngay)
+
+jobs:
+  pg-dump:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: db-backup
+      cancel-in-progress: false
+    steps:
+      - name: Kiểm tra secret đã cấu hình
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "⚠️  Chưa có secret SUPABASE_DB_PASSWORD. Thêm vào GitHub Secrets rồi chạy lại." >&2
+            exit 1
+          fi
+          echo "OK: có SUPABASE_DB_PASSWORD"
+
+      - name: Cài PostgreSQL client (pg_dump)
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Backup database
+        env:
+          SUPABASE_REF: gjavupiyrnuwtersagnw
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p backups
+          STAMP="$(date +%Y%m%d_%H%M%S)"
+          HOST="aws-0-ap-northeast-2.pooler.supabase.com"
+          DATABASE_URL="postgresql://postgres.${SUPABASE_REF}:${SUPABASE_DB_PASSWORD}@${HOST}:5432/postgres"
+          pg_dump "$DATABASE_URL" --no-owner --no-privileges --clean --if-exists | gzip > "backups/agri_${SUPABASE_REF}_${STAMP}.sql.gz"
+          ls -lh backups/
+          # Ghi thông tin để dễ nhận biết bản nào
+          echo "$STAMP" > backups/LATEST.txt
+          cat backups/LATEST.txt
+
+      - name: Upload artifact (tải về từ Actions → Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup
+          path: backups/agri_*.sql.gz
+          if-no-files-found: error
+          retention-days: 30   # 30 ngày, có thể tăng/giảm
