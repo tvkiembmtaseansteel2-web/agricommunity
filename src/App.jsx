@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { analyzeCropDisease } from './geminiService';
-import { computeAllGardensHealth } from './gardenHealth';
+import { computeAllGardensHealth, computeTodayTasks, fmtDateShort } from './gardenHealth';
 import { fetchWeatherData, reverseGeocode, getCurrentPosition, coordsFromProfile, DEFAULT_LABEL } from './weatherService';
 import { resolveZoneFromGps, generateSampleZones } from './zoneService';
 import { computeAllZonesHealth, ISSUE_STATUS_LABELS } from './zoneHealth';
@@ -1322,6 +1322,7 @@ ${response.export_warning}
               const gw = gardenWeather[g.id];
               const logsG = logs.filter(l => l.garden_id === g.id || (l.garden_id == null && l.crop_type === g.crop_type));
               const gz = getGardenZones(g);
+              const gh = computeAllGardensHealth([g], logs, weather)[0];
               return (
                 <GardenDetail
                   garden={g}
@@ -1329,6 +1330,9 @@ ${response.export_warning}
                   gardenLogs={logsG}
                   zones={gz}
                   zoneHealth={gz.length > 0 ? computeAllZonesHealth(gz, issues, logs, weather) : []}
+                  todayTasks={gh ? computeTodayTasks(gh) : []}
+                  statusLabel={gh?.statusLabel}
+                  statusDot={gh?.dot}
                   onBack={() => setOpenGardenId(null)}
                 />
               );
@@ -1455,12 +1459,22 @@ ${response.export_warning}
                         </div>
                       </div>
                     ) : (
-                      computeAllGardensHealth(gardensList, logs, weather).filter(h => h.status !== 'good').map((h) => (
-                        <div key={h.garden.id} onClick={() => setOpenGardenId(h.garden.id)} style={{ cursor: 'pointer', background: h.status === 'risk' ? '#fff3e0' : 'var(--primary-light)', border: '1px solid var(--border-color)', borderLeft: `4px solid ${h.status === 'risk' ? '#e65100' : '#f9a825'}`, borderRadius: '10px', padding: '10px 12px' }}>
-                          <div style={{ fontSize: '13px', fontWeight: 700 }}>{h.dot} {h.cropLabel} — {h.garden.name}</div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '3px' }}>{h.findings[0]?.text || h.summary}</div>
-                        </div>
-                      ))
+                      computeAllGardensHealth(gardensList, logs, weather).filter(h => h.status !== 'good').map((h) => {
+                        const tasks = computeTodayTasks(h);
+                        return (
+                          <div key={h.garden.id} onClick={() => setOpenGardenId(h.garden.id)} style={{ cursor: 'pointer', background: h.status === 'risk' ? '#fff3e0' : 'var(--primary-light)', border: '1px solid var(--border-color)', borderLeft: `4px solid ${h.status === 'risk' ? '#e65100' : '#f9a825'}`, borderRadius: '10px', padding: '10px 12px' }}>
+                            <div style={{ fontSize: '13px', fontWeight: 700 }}>{h.dot} {h.cropLabel} — {h.garden.name}</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px' }}>
+                              {(tasks.length > 0 ? tasks : [{ icon: '💡', text: h.summary, priority: 'trungbinh' }]).map((t, i) => (
+                                <div key={i} style={{ fontSize: '12px', color: t.priority === 'cao' ? '#b71c1c' : 'var(--text-secondary)', display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                                  <span style={{ flexShrink: 0 }}>{t.icon}</span>
+                                  <span style={{ lineHeight: 1.35 }}>{t.text}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 )}

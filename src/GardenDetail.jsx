@@ -29,7 +29,7 @@ function daysSince(dateStr) {
   return Math.max(0, Math.round((t - s) / 86400000));
 }
 
-export default function GardenDetail({ garden, gardenWeather, gardenLogs, zones, zoneHealth, onBack }) {
+export default function GardenDetail({ garden, gardenWeather, gardenLogs, zones, zoneHealth, todayTasks = [], statusLabel, statusDot, onBack }) {
   const crop = CROP_LABELS[garden.crop_type] || garden.crop_type;
   const gw = gardenWeather || null;
   const hasCoords = garden.center_lat || garden.center_lng || garden.latitude || garden.longitude;
@@ -75,6 +75,38 @@ export default function GardenDetail({ garden, gardenWeather, gardenLogs, zones,
           Đang cập nhật thời tiết khu vực vườn...
         </div>
       )}
+
+      {/* ✅ Việc cần làm / nhắc lịch cho vườn này */}
+      <div className="card" style={{ borderLeft: '4px solid var(--secondary-color)' }}>
+        <div className="card-title" style={{ fontSize: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>✅ Việc cần làm hôm nay</span>
+          {statusLabel && <span style={{ fontSize: '12px' }}>{statusDot} {statusLabel}</span>}
+        </div>
+        {todayTasks.length === 0 ? (
+          <p style={{ color: '#2e7d32', fontSize: '13px', padding: '8px 0', display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <CheckCircle2 size={16} /> Vườn này không có việc gì cần ưu tiên — duy trì chăm sóc.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {todayTasks.map((t, i) => (
+              <div key={i} style={{
+                display: 'flex', gap: '8px', alignItems: 'flex-start',
+                background: t.priority === 'cao' ? '#fff3e0' : 'var(--primary-light)',
+                border: '1px solid var(--border-color)', borderLeft: `4px solid ${t.priority === 'cao' ? '#e65100' : '#f9a825'}`,
+                borderRadius: '8px', padding: '10px'
+              }}>
+                <span style={{ fontSize: '16px' }}>{t.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '13px', lineHeight: 1.4 }}>{t.text}</div>
+                  <div style={{ fontSize: '11px', color: t.priority === 'cao' ? '#b71c1c' : '#8d6e00', marginTop: '3px', fontWeight: 600 }}>
+                    ⏳ {t.when}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Trạng thái + khu vực */}
       <div className="card">

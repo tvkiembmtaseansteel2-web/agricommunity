@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeGardenHealth, computeAllGardensHealth, ACTIVITY_LABELS } from '../gardenHealth.js';
+import { computeGardenHealth, computeAllGardensHealth, computeTodayTasks, ACTIVITY_LABELS } from '../gardenHealth.js';
 
 // Helper: tạo ngày cách đây N ngày → chuỗi YYYY-MM-DD
 const daysAgo = (n) => {
@@ -101,5 +101,34 @@ describe('gardenHealth — nhãn hoạt động', () => {
     expect(ACTIVITY_LABELS.tuoi_nuoc).toBe('Tưới nước');
     expect(ACTIVITY_LABELS.phun_thuoc).toBe('Phun thuốc');
     expect(ACTIVITY_LABELS.bon_phan).toBe('Bón phân');
+  });
+});
+
+describe('gardenHealth — computeTodayTasks (việc cần làm)', () => {
+  it('bỏ các ghi chú "good", chỉ lấy cảnh báo (warn/risk)', () => {
+    const logs = [mkLog('tuoi_nuoc', 15)]; // lâu ngày chưa tưới → risk
+    const h = computeGardenHealth(garden, logs, { temp: 28, humidity: 60, rain: 0 });
+    const tasks = computeTodayTasks(h);
+    expect(tasks.length).toBeGreaterThan(0);
+    // mọi task đều không phải 'good' (tức là có icon cảnh báo)
+    tasks.forEach(t => expect(['water', 'fert', 'spray', 'issue', 'todo']).toContain(t.type));
+    // task tưới ưu tiên
+    const water = tasks.find(t => t.type === 'water');
+    expect(water).toBeTruthy();
+    expect(water.priority).toBe('cao'); // risk → ưu tiên cao
+  });
+
+  it('vườn ổn định → danh sách task rỗng', () => {
+    const logs = [mkLog('tuoi_nuoc', 1), mkLog('phun_thuoc', 5), mkLog('bon_phan', 10)];
+    const h = computeGardenHealth(garden, logs, { temp: 28, humidity: 60, rain: 0 });
+    expect(computeTodayTasks(h)).toEqual([]);
+  });
+
+  it('task risk xếp trước task warn', () => {
+    const logs = [mkLog('tuoi_nuoc', 20), mkLog('phun_thuoc', 20)]; // cả 2 đều risk (ẩm)
+    const h = computeGardenHealth(garden, logs, { temp: 26, humidity: 92, rain: 3 });
+    const tasks = computeTodayTasks(h);
+    // task đầu tiên có priority cao nhất
+    expect(tasks[0].priority).toBe('cao');
   });
 });

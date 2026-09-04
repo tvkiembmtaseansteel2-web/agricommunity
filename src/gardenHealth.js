@@ -197,3 +197,43 @@ export function computeAllGardensHealth(gardens, logs, weather) {
   const rank = { risk: 0, warn: 1, good: 2 };
   return results.sort((a, b) => rank[a.status] - rank[b.status]);
 }
+
+/**
+ * Tách "việc cần làm hôm nay" từ kết quả sức khỏe vườn → danh sách task rõ ràng,
+ * có mức ưu tiên + gợi ý thời điểm. Dùng cho card "Hôm nay" và trang chi tiết vườn.
+ * @returns {Array<{type, icon, text, priority, when}>}
+ */
+export function computeTodayTasks(gardenHealth) {
+  if (!gardenHealth) return [];
+  const tasks = [];
+  for (const f of gardenHealth.findings || []) {
+    if (f.level === 'good') continue; // bỏ các ghi chú "ổn"
+    let type = 'todo';
+    if (f.icon === '💧') type = 'water';
+    else if (f.icon === '🌱') type = 'fert';
+    else if (f.icon === '🍄') type = 'spray';
+    else if (f.icon === '🛑') type = 'issue';
+    const priority = f.level === 'risk' ? 'cao' : 'trungbinh';
+    // Rút gọn text (bỏ hậu tố ngày để tránh lặp) + thêm nhãn thời điểm
+    let text = (f.text || '').replace(/\(lần cuối[^)]*\)/g, '').trim();
+    tasks.push({
+      type,
+      icon: f.icon,
+      text,
+      priority,
+      when: f.level === 'risk' ? 'Hôm nay' : 'Trong 1–2 ngày tới'
+    });
+  }
+  // Ưu tiên: risk trước, rồi water, spray, fert
+  const rank = { cao: 0, trungbinh: 1 };
+  tasks.sort((a, b) => (rank[a.priority] - rank[b.priority]) || (a.type === 'water' ? -1 : 1));
+  return tasks;
+}
+
+// Định dạng ngày "YYYY-MM-DD" → "DD/MM" (tái dùng ở App nếu cần)
+export const fmtDateShort = (d) => {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return d;
+  return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}`;
+};
