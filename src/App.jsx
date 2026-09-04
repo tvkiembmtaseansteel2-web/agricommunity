@@ -39,7 +39,9 @@ import { parseVoice } from './voiceParse';
 import Statistics from './Statistics';
 import GardensManager from './GardensManager';
 import KBAdmin from './KBAdmin';
+import GardenMap from './GardenMap';
 import RoleManager from './RoleManager';
+import GardenDetail from './GardenDetail';
 import { uploadFarmImage } from './storageService';
 import { scanReceipt, fileToBase64 } from './receiptScanner';
 
@@ -243,6 +245,10 @@ export default function App() {
   const [weatherLocating, setWeatherLocating] = useState(false); // đang bật định vị GPS
   // Thông báo mềm (không chặn) khi không thể định vị — thay cho alert gây phiền
   const [weatherNotice, setWeatherNotice] = useState('');
+  // Thời tiết riêng cho từng vườn (theo tọa độ vườn) — map garden_id → weather
+  const [gardenWeather, setGardenWeather] = useState({});
+  // Vườn đang mở chi tiết (null = chưa mở)
+  const [openGardenId, setOpenGardenId] = useState(null);
 
   // Notifications State (thông báo duyệt bài)
   const [notifications, setNotifications] = useState([]);
@@ -284,9 +290,15 @@ export default function App() {
     const { data } = await supabase.from('notifications')
       .select('*')
       .eq('profile_id', userId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
     if (data) setNotifications(data);
   };
+
+  // Khi danh sách vườn thay đổi → nạp thời tiết riêng cho từng vườn.
+  useEffect(() => {
+    if (gardensList.length > 0) fetchAllGardenWeather();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gardensList]);
 
   // Đánh dấu tất cả đã đọc
   const markAllNotificationsRead = async () => {
@@ -421,6 +433,33 @@ export default function App() {
     } finally {
       setWeatherLoading(false);
     }
+  };
+
+  // Toạ độ ưu tiên của 1 vườn: center (từ ranh giới) → lat/lng của vườn → mặc định Đắk Lắk.
+  const getGardenCoords = (g) => {
+    const lat = parseFloat(g?.center_lat) || parseFloat(g?.latitude);
+    const lng = parseFloat(g?.center_lng) || parseFloat(g?.longitude);
+    if (!Number.isNaN(lat) && !Number.isNaN(lng)) return { latitude: lat, longitude: lng };
+    return { latitude: 12.6667, longitude: 108.05 }; // Đắk Lắk mặc định
+  };
+
+  // Lấy thời tiết theo đúng tọa độ từng vườn (mỗi vườn ở khu vực khác nhau).
+  const fetchGardenWeather = async (garden) => {
+    if (!garden?.id) return;
+    const { latitude, longitude } = getGardenCoords(garden);
+    try {
+      const data = await fetchWeatherData(latitude, longitude);
+      if (data) {
+        setGardenWeather((prev) => ({ ...prev, [garden.id]: { ...data, ...getGardenCoords(garden) } }));
+      }
+    } catch (e) {
+      console.warn('Không lấy được thời tiết vườn:', e);
+    }
+  };
+
+  // Nạp thời tiết cho tất cả vườn (khi coords khác nhau).
+  const fetchAllGardenWeather = () => {
+    (gardensList || []).forEach((g) => fetchGardenWeather(g));
   };
 
   // Bật định vị GPS của nông dân → lấy thời tiết theo vị trí thực tế, theo thời gian thực.
@@ -1275,7 +1314,28 @@ ${response.export_warning}
         {/* TAB 1: TRANG CHỦ */}
         {activeTab === 'home' && (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
+
+            {/* 🏡 Chi tiết một vườn (mở khi bấm vào card vườn) — thay thế nội dung Home */}
+            {(() => {
+              const g = gardensList.find(x => x.id === openGardenId);
+              if (!g) return null;
+              const gw = gardenWeather[g.id];
+              const logsG = logs.filter(l => l.garden_id === g.id || (l.garden_id == null && l.crop_type === g.crop_type));
+              const gz = getGardenZones(g);
+              return (
+                <GardenDetail
+                  garden={g}
+                  gardenWeather={gw}
+                  gardenLogs={logsG}
+                  zones={gz}
+                  zoneHealth={gz.length > 0 ? computeAllZonesHealth(gz, issues, logs, weather) : []}
+                  onBack={() => setOpenGardenId(null)}
+                />
+              );
+            })()}
+
+            {/* Khi chưa mở chi tiết vườn → hiện nội dung Home đầy đủ (thời tiết toàn cục + Hiểu vườn + ...) */}
+            {!openGardenId && (<>
             {/* Weather Widget (dữ liệu thật từ Open-Meteo) — nền đổi theo ngày/đêm */}
             <div className={`card weather-widget ${weather?.isDay === false ? 'weather-widget--night' : ''}`}>
               <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1426,11 +1486,12 @@ ${response.export_warning}
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {computeAllGardensHealth(gardensList, logs, weather).map((h) => (
-                    <div key={h.garden.id} style={{
+                    <div key={h.garden.id} onClick={() => setOpenGardenId(h.garden.id)} style={{
                       border: '1px solid var(--border-color)',
                       borderLeft: `4px solid ${h.status === 'risk' ? '#e65100' : h.status === 'warn' ? '#f9a825' : '#2e7d32'}`,
                       borderRadius: '10px', padding: '12px',
-                      background: h.status === 'risk' ? '#fff3e0' : h.status === 'warn' ? '#fffde7' : 'var(--primary-light)'
+                      background: h.status === 'risk' ? '#fff3e0' : h.status === 'warn' ? '#fffde7' : 'var(--primary-light)',
+                      cursor: 'pointer'
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)' }}>
@@ -1438,6 +1499,21 @@ ${response.export_warning}
                         </div>
                         <span style={{ fontSize: '13px', fontWeight: 700 }}>{h.dot} {h.statusLabel}</span>
                       </div>
+
+                      {/* 📍 Thời tiết theo đúng khu vực vườn này */}
+                      {(() => {
+                        const gw = gardenWeather[h.garden.id];
+                        if (!gw) return null;
+                        return (
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                            {gw.desc} • {gw.temp}°C
+                            {gw.rain > 0 ? ' • 🌧️ mưa ' + gw.rain + 'mm' : ''}
+                            <span style={{ opacity: 0.7 }}>• vườn này</span>
+                            {(() => { const c = getGardenCoords(h.garden); return (Number.isNaN(parseFloat(c.latitude)) ? '' : null); })()}
+                          </div>
+                        );
+                      })()}
+
                       <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>{h.summary}</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '8px' }}>
                         {h.findings.map((f, i) => (
@@ -1485,11 +1561,14 @@ ${response.export_warning}
                       })()}
 
                       <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
-                        <button className="btn btn-secondary" style={{ padding: '7px 12px', fontSize: '12px' }} onClick={() => setActiveTab('logs')}>
+                        <button className="btn btn-secondary" style={{ padding: '7px 12px', fontSize: '12px' }} onClick={(e) => { e.stopPropagation(); setOpenGardenId(h.garden.id); }}>
+                          👁️ Xem chi tiết
+                        </button>
+                        <button className="btn btn-secondary" style={{ padding: '7px 12px', fontSize: '12px' }} onClick={(e) => { e.stopPropagation(); setActiveTab('logs'); }}>
                           + Ghi nhật ký
                         </button>
                         {h.status !== 'good' && (
-                          <button className="btn btn-secondary" style={{ padding: '7px 12px', fontSize: '12px', background: '#e65100', border: 'none', color: 'white' }} onClick={() => setActiveTab('ai')}>
+                          <button className="btn btn-secondary" style={{ padding: '7px 12px', fontSize: '12px', background: '#e65100', border: 'none', color: 'white' }} onClick={(e) => { e.stopPropagation(); setActiveTab('ai'); }}>
                             🔍 Hỏi Bác sĩ AI
                           </button>
                         )}
@@ -1577,6 +1656,7 @@ ${response.export_warning}
                 </button>
               )}
             </div>
+            </>)}
 
           </div>
         )}
