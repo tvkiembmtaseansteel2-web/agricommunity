@@ -158,14 +158,15 @@
 - [x] Lưu kết quả đúng User/Garden/Zone.
 - [x] AI không tự ý ghi dữ liệu vào vườn (chỉ tư vấn; người dùng chủ động ghi).
 
-> ### ⚠️ RỦI RO PRODUCTION QUAN TRỌNG — Gemini API key ở client
-> `VITE_GEMINI_API_KEY` bị **nhúng vào bundle JS** (ai tải app đều lấy được key).
-> Đây là rủi ro **COST + bảo mật** khi public: key có thể bị scrape và dùng tràn.
+> ### ✅ ĐÃ XỬ LÝ — Gemini API key chuyển sang server (Edge Function)
+> `gemini-proxy` (Supabase Edge Function) giữ key **server-side** (`GEMINI_API_KEY` secret),
+> `verify_jwt = true` (chỉ user đã đăng nhập gọi được). Client gọi `supabase.functions.invoke('gemini-proxy')`.
+> **Đã verify: key KHÔNG còn trong bundle production.** Client không còn gọi Gemini trực tiếp.
+> (3 file đã đổi: `geminiService`, `receiptScanner`, `voiceParse`.)
 >
-> **Đề xuất trước khi public rộng:**
-> - [ ] Chuyển gọi Gemini qua **Edge Function** (key nằm server, client gọi function).
-> - [ ] HOẶC ít nhất: giới hạn request/user phía client + đặt budget/cap trong Gemini API console.
-> - [ ] Theo dõi chi phí AI (dashboard Gemini).
+> **Còn nên làm:**
+> - [ ] Theo dõi chi phí AI (Gemini dashboard) + đặt budget/cap trong console.
+> - [ ] Giới hạn request/user phía client nếu cần (phòng abuse khi public).
 
 ---
 
@@ -392,6 +393,7 @@ Production branch:     main
 Supabase project:      gjavupiyrnuwtersagnw (agri-comunity, refresh = gjavupiyrnuwtersagnw)
 Migrations:            supabase/migrations/ (phase5_zones, phase6_rls_fix, phase7_roles, phase8_soft_delete...)
 Env vars (Netlify):    VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_GEMINI_API_KEY
+Edge Functions:        gemini-proxy (verify_jwt=true, secret GEMINI_API_KEY + GEMINI_MODEL) | kb-crawler (verify_jwt=false, header CRAWLER_SECRET)
 Auth redirect:         site_url + uri_allow_list = https://agricommunity.netlify.app(/ **)
 Roles:                 farmer < admin_v1 < admin_v0
 Backup:                (chưa cài — xem docs/SCALING_ROADMAP.md)
@@ -419,8 +421,10 @@ Deploy date:           2026-09-04
 - [ ] GO — Được phép Production
 - [ ] NO-GO — Chưa được Production
 
-**Blockers đề xuất xử lý TRƯỚC khi public rộng (ưu tiên cao nhất):**
-1. **Gemini API key ở client** → chuyển qua Edge Function hoặc đặt cap + giới hạn request.
+**Blockers đã xử lý:**
+1. ✅ **Gemini API key ở client** → đã chuyển sang Edge Function `gemini-proxy` (verify_jwt, key server-side, không còn trong bundle).
+
+**Blockers còn lại (cần xử lý trước khi public rộng):**
 2. **Chưa có backup chủ động** → cài PG dump hằng ngày (xem SCALING_ROADMAP).
 3. **Chưa có error tracking** → thêm Sentry (hoặc tương đương).
 
