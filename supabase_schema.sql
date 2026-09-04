@@ -137,12 +137,13 @@ CREATE TABLE IF NOT EXISTS public.gardens (
     longitude NUMERIC,
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    deleted_at TIMESTAMPTZ -- Soft-delete: NULL = còn hoạt động; đặt now() khi "xóa"
 );
 
 ALTER TABLE public.gardens ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Người dùng xem vườn của mình" ON public.gardens FOR SELECT USING (auth.uid() = profile_id);
+CREATE POLICY "Người dùng xem vườn của mình" ON public.gardens FOR SELECT USING (auth.uid() = profile_id AND deleted_at IS NULL);
 CREATE POLICY "Người dùng thêm vườn" ON public.gardens FOR INSERT WITH CHECK (auth.uid() = profile_id);
 CREATE POLICY "Người dùng sửa vườn của mình" ON public.gardens FOR UPDATE USING (auth.uid() = profile_id);
 CREATE POLICY "Người dùng xóa vườn của mình" ON public.gardens FOR DELETE USING (auth.uid() = profile_id);
@@ -158,14 +159,15 @@ CREATE TABLE IF NOT EXISTS public.logs (
     product_name TEXT, -- Tên loại phân/thuốc sử dụng
     dosage TEXT, -- Liều lượng (ví dụ: 500g/gốc, 20ml/bình 20L)
     notes TEXT, -- Ghi chú thêm
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    deleted_at TIMESTAMPTZ -- Soft-delete: NULL = còn hoạt động
 );
 
 ALTER TABLE public.logs ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Người dùng chỉ có thể xem nhật ký của mình" 
     ON public.logs FOR SELECT 
-    USING (auth.uid() = profile_id);
+    USING (auth.uid() = profile_id AND deleted_at IS NULL);
 
 CREATE POLICY "Người dùng chỉ có thể thêm nhật ký cho mình" 
     ON public.logs FOR INSERT 
@@ -190,12 +192,13 @@ CREATE TABLE IF NOT EXISTS public.yields (
     quality_grade TEXT, -- Loại 1, Loại 2, Xuất khẩu...
     revenue_vnd NUMERIC, -- Có thể ghi nhận doanh thu nếu muốn
     notes TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    deleted_at TIMESTAMPTZ -- Soft-delete: NULL = còn hoạt động
 );
 
 ALTER TABLE public.yields ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Nông dân xem sản lượng của mình" ON public.yields FOR SELECT USING (auth.uid() = profile_id);
+CREATE POLICY "Nông dân xem sản lượng của mình" ON public.yields FOR SELECT USING (auth.uid() = profile_id AND deleted_at IS NULL);
 CREATE POLICY "Nông dân thêm sản lượng" ON public.yields FOR INSERT WITH CHECK (auth.uid() = profile_id);
 CREATE POLICY "Nông dân sửa sản lượng của mình" ON public.yields FOR UPDATE USING (auth.uid() = profile_id);
 CREATE POLICY "Nông dân xóa sản lượng của mình" ON public.yields FOR DELETE USING (auth.uid() = profile_id);

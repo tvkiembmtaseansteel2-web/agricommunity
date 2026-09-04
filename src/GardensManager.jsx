@@ -66,10 +66,11 @@ export default function GardensManager({ onGardensChange }) {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Xóa vườn này?')) return;
-    const { error } = await supabase.from('gardens').delete().eq('id', id);
+    if (!window.confirm('Xóa vườn này? (vườn sẽ được lưu lại trong "thùng rác" và có thể khôi phục)')) return;
+    // Soft-delete: đánh dấu deleted_at thay vì xóa hẳn (chống mất dữ liệu ngoài ý muốn)
+    const { error } = await supabase.from('gardens').update({ deleted_at: new Date().toISOString() }).eq('id', id);
     if (error) setMsg('❌ ' + error.message);
-    else { setMsg('✅ Đã xóa.'); reload(); }
+    else { setMsg('✅ Đã xóa (khôi phục được).'); reload(); }
   };
 
   // Mở bản đồ vẽ ranh giới cho một vườn
