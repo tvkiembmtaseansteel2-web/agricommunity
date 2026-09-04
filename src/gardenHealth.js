@@ -38,13 +38,21 @@ const isHumid = (weather) =>
 
 const isHot = (weather) => weather && weather.temp != null && weather.temp >= 34;
 
-// Số ngày trôi qua (lag) kể từ một ngày, trả về số nguyên >= 0
+// Số ngày trôi qua (lag) kể từ một ngày, trả về số nguyên >= 0.
+// Chuẩn hoá về "đầu ngày" theo giờ địa phương để tránh lệch ±1 ngày
+// (VD: nhật ký tưới ngày 13/8, hôm nay 02/09 → đủ 20 ngày, không phụ thuộc giờ nhập).
 const daysSince = (dateStr, now = Date.now()) => {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return null;
-  const diff = (now - d.getTime()) / 86400000;
-  return Math.max(0, Math.floor(diff));
+  const startOfLogDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); // đầu ngày địa phương
+  const startOfToday = new Date(
+    new Date(now).getFullYear(),
+    new Date(now).getMonth(),
+    new Date(now).getDate()
+  ).getTime();
+  const diff = (startOfToday - startOfLogDay) / 86400000;
+  return Math.max(0, Math.round(diff));
 };
 
 // Lấy nhật ký gần nhất của 1 vườn theo loại hoạt động.
@@ -66,6 +74,14 @@ const lastLogByActivity = (logs, garden) => {
 
 // Tạo một "finding" (gợi ý/cảnh báo) để hiển thị dưới mỗi vườn
 const finding = (level, icon, text) => ({ level, icon, text });
+
+// Định dạng ngày "YYYY-MM-DD" → "DD/MM" cho dễ đọc
+const fmtDate = (d) => {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return d;
+  return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}`;
+};
 
 /**
  * Tính trạng thái sức khỏe cho 1 vườn.
@@ -115,7 +131,8 @@ export function computeGardenHealth(garden, logs, weather) {
       escalate('warn');
       findings.push(finding('warn', '🍄', `Trời ẩm thấp, đã ${daysSpray} ngày chưa phun phòng nấm. Nên phun trong 1-2 ngày tới.`));
     } else {
-      findings.push(finding('good', '✅', `Vừa phun phòng ${daysSpray === 0 ? 'hôm nay' : `${daysSpray} ngày trước`}, phù hợp khi trời ẩm.`));
+      const when = daysSpray === 0 ? 'hôm nay' : `${daysSpray} ngày trước (${fmtDate(lastSpray.activity_date)})`;
+      findings.push(finding('good', '✅', `Vừa phun phòng ${when}, phù hợp khi trời ẩm.`));
     }
   }
 
@@ -125,12 +142,13 @@ export function computeGardenHealth(garden, logs, weather) {
     findings.push(finding('warn', '💧', 'Chưa ghi nhật ký tưới nước. Không thể ước lượng nhu cầu nước — hãy ghi lại lần tưới.'));
   } else if (daysWater > waterMax + 3) {
     escalate('risk');
-    findings.push(finding('risk', '💧', `Đã ${daysWater} ngày chưa tưới nước${hot ? ' (trời đang nắng nóng)' : ''}. Cây dễ bị khô/thiếu nước.`));
+    findings.push(finding('risk', '💧', `Đã ${daysWater} ngày chưa tưới nước${hot ? ' (trời đang nắng nóng)' : ''}. Cây dễ bị khô/thiếu nước (lần cuối ${fmtDate(lastWater.activity_date)}).`));
   } else if (daysWater > waterMax) {
     escalate('warn');
-    findings.push(finding('warn', '💧', `Đã ${daysWater} ngày chưa tưới nước. Nên tưới sớm (sáng sớm/chiều mát).`));
+    findings.push(finding('warn', '💧', `Đã ${daysWater} ngày chưa tưới nước (lần cuối ${fmtDate(lastWater.activity_date)}). Nên tưới sớm (sáng sớm/chiều mát).`));
   } else {
-    findings.push(finding('good', '💧', `${daysWater === 0 ? 'Đã tưới nước hôm nay' : `Tưới nước ${daysWater} ngày trước`}, ổn.`));
+    const when = daysWater === 0 ? 'hôm nay' : `${daysWater} ngày trước`;
+    findings.push(finding('good', '💧', `${when === 'hôm nay' ? 'Đã tưới nước hôm nay' : `Tưới nước ${when}`}, ổn.`));
   }
 
   // 3) Nhắc bón phân
@@ -141,9 +159,9 @@ export function computeGardenHealth(garden, logs, weather) {
     }
   } else if (daysFert >= THRESHOLDS.fertRiskDays) {
     escalate('warn');
-    findings.push(finding('warn', '🌱', `Đã ${daysFert} ngày chưa bón phân. Nên lên lịch bón và điều chỉnh liều theo nhu cầu cây.`));
+    findings.push(finding('warn', '🌱', `Đã ${daysFert} ngày chưa bón phân (lần cuối ${fmtDate(lastFert.activity_date)}). Nên lên lịch bón và điều chỉnh liều theo nhu cầu cây.`));
   } else if (daysFert >= THRESHOLDS.fertWarnDays) {
-    findings.push(finding('good', '🌱', `Bón phân ${daysFert} ngày trước. Gần đến chu kỳ bón tiếp theo.`));
+    findings.push(finding('good', '🌱', `Bón phân ${daysFert} ngày trước (${fmtDate(lastFert.activity_date)}). Gần đến chu kỳ bón tiếp theo.`));
   }
 
   // Tổng hợp summary ngắn gọn

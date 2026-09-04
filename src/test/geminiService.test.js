@@ -62,6 +62,18 @@ describe('formatGardenLogs — đưa nhật ký vườn vào prompt', () => {
     expect(out).toContain('bị mưa sau 3 giờ');
   });
 
+  it('kèm số ngày trôi qua (X ngày trước / hôm nay) để AI ước lượng mốc thời gian', () => {
+    const today = new Date();
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const logs = [
+      { activity_date: fmt(today), activity_type: 'tuoi_nuoc', crop_type: 'cafe' }, // hôm nay
+      { activity_date: '2026-01-01', activity_type: 'phun_thuoc', crop_type: 'cafe' } // rất cũ
+    ];
+    const out = formatGardenLogs(logs);
+    expect(out).toContain('(hôm nay)');
+    expect(out).toMatch(/\(\d+ ngày trước\)/); // ít nhất một mục có "X ngày trước"
+  });
+
   it('sắp xếp theo ngày giảm dần & giới hạn 8 bản ghi', () => {
     const logs = Array.from({ length: 12 }, (_, i) => ({ activity_date: `2026-01-${String(i + 1).padStart(2, '0')}`, activity_type: 'tuoi_nuoc', crop_type: 'cafe' }));
     const out = formatGardenLogs(logs);

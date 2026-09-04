@@ -90,9 +90,20 @@ function sessionSignature(messages) {
   return (firstUser.text || '').trim().replace(/\s+/g, ' ').slice(0, 60) || 'Trống';
 }
 
+// Số ngày trôi qua từ một ngày (YYYY-MM-DD) → hôm nay (chuẩn hoá đầu ngày địa phương).
+// Dùng cho hiển thị nhật ký "X ngày trước" — căn cứ cho Bác sĩ AI phân tích.
+function daysFromDate(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  const startLog = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const n = new Date();
+  const startToday = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+  return Math.max(0, Math.round((startToday - startLog) / 86400000));
+}
+
 // Nhận biết 2 câu hỏi trùng lặp (bỏ dấu, hoa-thường, khoảng trắng).
-function normalizeQuestion(q) {
-  return (q || '')
+function normalizeQuestion(q) {  return (q || '')
     .toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // bỏ dấu tiếng Việt
     .replace(/[^\p{L}\p{N}]/gu, ' ') // chỉ giữ chữ & số
@@ -1546,6 +1557,10 @@ ${response.export_warning}
                         {log.notes && <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>{log.notes}</div>}
                         <div className="log-meta">
                           <span>📅 {log.activity_date}</span>
+                          {(() => {
+                            const days = daysFromDate(log.activity_date);
+                            return days !== null ? <span>• {days === 0 ? 'hôm nay' : `${days} ngày trước`}</span> : null;
+                          })()}
                         </div>
                       </div>
                     </div>

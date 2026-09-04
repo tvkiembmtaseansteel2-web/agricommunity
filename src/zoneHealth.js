@@ -28,14 +28,27 @@ const THRESHOLDS = {
 const isHumid = (w) => w && (w.rain > 0 || (w.humidity != null && w.humidity >= 85));
 const isHot = (w) => w && w.temp != null && w.temp >= 34;
 
+// Số ngày trôi qua từ một ngày nhập nhật ký → hôm nay (chuẩn hoá về đầu ngày địa phương,
+// tránh lệch ±1 ngày do múi giờ). Là căn cứ để Bác sĩ AI phân tích vườn chuẩn xác.
 const daysSince = (dateStr, now = Date.now()) => {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return null;
-  return Math.max(0, Math.floor((now - d.getTime()) / 86400000));
+  const startOfLogDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const n = new Date(now);
+  const startOfToday = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+  return Math.max(0, Math.round((startOfToday - startOfLogDay) / 86400000));
 };
 
 const finding = (level, icon, text) => ({ level, icon, text });
+
+// Định dạng ngày "YYYY-MM-DD" → "DD/MM"
+const fmtDate = (d) => {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return d;
+  return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}`;
+};
 
 // Nhật ký áp dụng cho một Zone: scope=GARDEN (hoặc chưa có zone) áp cho toàn vườn;
 // scope=ZONES thì chỉ khi zone_ids chứa zone.id.
@@ -111,10 +124,10 @@ export function computeZoneHealth(zone, issues, logs, weather) {
       findings.push(finding('warn', '🍄', 'Trời ẩm thấp nhưng khu này chưa ghi phun phòng nấm. Nên có biện pháp dự phòng.'));
     } else if (daysSpray >= THRESHOLDS.sprayRiskDays) {
       escalate('risk');
-      findings.push(finding('risk', '🍄', `Trời ẩm + đã ${daysSpray} ngày chưa phun phòng nấm → nguy cơ nấm bệnh cao. Kiểm tra ngay.`));
+      findings.push(finding('risk', '🍄', `Trời ẩm + đã ${daysSpray} ngày chưa phun phòng nấm (lần cuối ${fmtDate(lastSpray.activity_date)}) → nguy cơ nấm bệnh cao. Kiểm tra ngay.`));
     } else if (daysSpray >= THRESHOLDS.sprayWarnDays) {
       escalate('warn');
-      findings.push(finding('warn', '🍄', `Trời ẩm, đã ${daysSpray} ngày chưa phun phòng nấm. Nên phun trong 1-2 ngày tới.`));
+      findings.push(finding('warn', '🍄', `Trời ẩm, đã ${daysSpray} ngày chưa phun phòng nấm (lần cuối ${fmtDate(lastSpray.activity_date)}). Nên phun trong 1-2 ngày tới.`));
     }
   }
 
@@ -124,10 +137,10 @@ export function computeZoneHealth(zone, issues, logs, weather) {
     findings.push(finding('warn', '💧', 'Chưa ghi nhật ký tưới cho khu này.'));
   } else if (daysWater > waterMax + 3) {
     escalate('risk');
-    findings.push(finding('risk', '💧', `Đã ${daysWater} ngày chưa tưới khu này${hot ? ' (nắng nóng)' : ''}. Cây dễ khô.`));
+    findings.push(finding('risk', '💧', `Đã ${daysWater} ngày chưa tưới khu này${hot ? ' (nắng nóng)' : ''} (lần cuối ${fmtDate(lastWater.activity_date)}). Cây dễ khô.`));
   } else if (daysWater > waterMax) {
     escalate('warn');
-    findings.push(finding('warn', '💧', `Đã ${daysWater} ngày chưa tưới. Nên tưới sớm.`));
+    findings.push(finding('warn', '💧', `Đã ${daysWater} ngày chưa tưới (lần cuối ${fmtDate(lastWater.activity_date)}). Nên tưới sớm.`));
   }
 
   // 4) Nhắc bón phân

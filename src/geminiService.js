@@ -14,14 +14,28 @@ const ACTIVITY_LABELS = {
 };
 const CROP_LABELS = { sau_rieng: 'Sầu riêng', cafe: 'Cà phê', ho_tieu: 'Hồ tiêu' };
 
+// Số ngày trôi qua từ một ngày (YYYY-MM-DD) → hôm nay (chuẩn hoá đầu ngày địa phương).
+const daysAgoLag = (dateStr) => {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  const startLog = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const n = new Date();
+  const startToday = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+  return Math.max(0, Math.round((startToday - startLog) / 86400000));
+};
+
 // Chuyển danh sách nhật ký vườn thành khối văn bản ngắn gọn cho prompt (tối đa 8 gần nhất).
+// Kèm số ngày trôi qua từ ngày hoạt động (activity_date) → hôm nay, để AI ước lượng đúng
+// mốc thời gian (VD: "5 ngày trước") thay vì chỉ thấy ngày thô.
 export const formatGardenLogs = (logs = []) => {
   if (!Array.isArray(logs) || logs.length === 0) return '';
   const recent = [...logs].sort((a, b) => String(b.activity_date).localeCompare(String(a.activity_date))).slice(0, 8);
   return recent.map((l) => {
     const activity = ACTIVITY_LABELS[l.activity_type] || l.activity_type;
     const crop = CROP_LABELS[l.crop_type] || l.crop_type || '';
-    const parts = [`- ${l.activity_date}: ${activity}`];
+    const lag = daysAgoLag(l.activity_date);
+    const parts = [`- ${l.activity_date}${lag !== null ? ` (${lag === 0 ? 'hôm nay' : `${lag} ngày trước`})` : ''}: ${activity}`];
     if (crop) parts.push(crop);
     if (l.product_name) parts.push(`sp: ${l.product_name}`);
     if (l.dosage) parts.push(`liều: ${l.dosage}`);
