@@ -201,6 +201,13 @@ class MockSupabase {
     };
   }
 
+  // Mock cho Edge Function (mock mode không gọi server thật)
+  get functions() {
+    return {
+      invoke: async () => ({ data: null, error: new Error('Mock mode: không gọi Edge Function') })
+    };
+  }
+
   from(table) {
     const key = `agri_${table}`;
     const getItems = () => JSON.parse(localStorage.getItem(key)) || [];

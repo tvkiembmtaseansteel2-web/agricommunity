@@ -7,3 +7,9 @@ project_id = "gjavupiyrnuwtersagnw"
 # (so sánh với CRAWLER_SECRET) — chặn người lạ kích hoạt crawl.
 verify_jwt = false
 enabled = true
+
+[functions.gemini-proxy]
+# verify_jwt = true → CHỈ user đã đăng nhập (JWT hợp lệ) mới gọi được.
+# Đây là tầng bảo vệ chính: GEMINI_API_KEY nằm ở server, không lộ trong bundle client.
+verify_jwt = true
+enabled = true

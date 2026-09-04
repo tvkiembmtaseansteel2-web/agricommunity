@@ -1,11 +1,24 @@
 // Gemini AI Assistant Service
-// Hỗ trợ gọi API Gemini bằng fetch trực tiếp (không cần SDK cồng kềnh)
-// Tích hợp Mock AI tự động chẩn đoán bệnh cây trồng khi chưa nhập API Key.
+// Hỗ trợ gọi API Gemini qua Edge Function `gemini-proxy` (server giữ key, không lộ trong bundle).
+// Tích hợp Mock AI tự động chẩn đoán bệnh cây trồng khi chưa có key/server.
 import { fetchKnowledge, formatKnowledge, fetchMRLForCrop, formatMRL } from './knowledgeService';
+import { supabase, IS_MOCK } from './supabaseClient';
 
 const GEMINI_API_KEY = import.meta.env?.VITE_GEMINI_API_KEY;
 // Model mặc định: gemini-3.1-flash-lite (rẻ, nhanh, hỗ trợ vision, đang khả dụng)
 const GEMINI_MODEL = import.meta.env?.VITE_GEMINI_MODEL || 'gemini-3.1-flash-lite';
+
+// Có dùng được AI thật không? (mock nếu chưa cấu hình key hoặc đang chạy mock mode)
+const hasRealAi = () => !!GEMINI_API_KEY && !IS_MOCK;
+
+// Gọi Gemini qua Edge Function (server giữ key) — an toàn cho Production.
+export const callGemini = async (contents, generationConfig = { responseMimeType: 'application/json' }) => {
+  const { data, error } = await supabase.functions.invoke('gemini-proxy', {
+    body: { contents, generationConfig }
+  });
+  if (error) throw error;
+  return data;
+};
 
 // Nhãn hoạt động chăm sóc (ánh xạ từ logs.activity_type) — dùng để đưa vào prompt
 const ACTIVITY_LABELS = {
@@ -138,15 +151,14 @@ const mockDiagnose = (userText, imageBase64) => {
 };
 
 export const analyzeCropDisease = async (userMessage, imageBase64 = null, extraImages = [], gardenLogs = [], options = {}) => {
-  if (!GEMINI_API_KEY) {
-    // Không có API key -> Chạy offline bằng Mock Diagnosis trì hoãn 1 giây cho chân thực
+  if (!hasRealAi()) {
+    // Không có API key/server -> Chạy offline bằng Mock Diagnosis trì hoãn 1 giây cho chân thực
     await new Promise(resolve => setTimeout(resolve, 1200));
     return mockDiagnose(userMessage, imageBase64);
   }
 
   try {
     const model = GEMINI_MODEL;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
     // Gom tất cả ảnh (1 chính + các ảnh phụ)
     const allImages = [imageBase64, ...(extraImages || [])].filter(Boolean);
@@ -241,26 +253,11 @@ Quy tắc BẮT BUỘC:
 
     contents.push({ parts });
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents,
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
-      })
-    });
+    const response = await callGemini(contents, { responseMimeType: 'application/json' });
 
-    if (!response.ok) {
-      throw new Error(`Lỗi kết nối Gemini API: ${response.statusText}`);
-    }
+    const resultText = response.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!resultText) throw new Error('Gemini không trả về kết quả.');
 
-    const resData = await response.json();
-    const resultText = resData.candidates[0].content.parts[0].text;
-    
     // Parse chuỗi JSON nhận được từ Gemini
     return JSON.parse(resultText.trim());
   } catch (error) {

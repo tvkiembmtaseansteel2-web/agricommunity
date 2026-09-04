@@ -1,19 +1,19 @@
 // Quét hóa đơn mua phân bón / thuốc BVTV bằng AI (Gemini vision).
 // Chụp ảnh hóa đơn → AI đọc và trích xuất: tên sản phẩm, loại (phân/thuốc), liều lượng, hoạt chất.
 // Trả về danh sách sản phẩm để nông dân chọn → tự điền vào nhật ký.
+// Gọi qua Edge Function `gemini-proxy` (server giữ key, không lộ trong bundle).
+import { supabase, IS_MOCK } from './supabaseClient';
 
 const GEMINI_API_KEY = import.meta.env?.VITE_GEMINI_API_KEY;
 const GEMINI_MODEL = import.meta.env?.VITE_GEMINI_MODEL || 'gemini-3.1-flash-lite';
+const hasRealAi = () => !!GEMINI_API_KEY && !IS_MOCK;
 
 // Trích xuất từ ảnh hóa đơn qua Gemini
 export const scanReceipt = async (imageBase64) => {
-  if (!GEMINI_API_KEY) {
-    throw new Error('Chưa cấu hình VITE_GEMINI_API_KEY để quét hóa đơn.');
+  if (!hasRealAi()) {
+    throw new Error('Chưa cấu hình AI để quét hóa đơn.');
   }
   if (!imageBase64) throw new Error('Chưa có ảnh hóa đơn.');
-
-  const model = GEMINI_MODEL;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
   const prompt = `
 Bạn là trợ lý nông nghiệp. Hãy đọc ảnh hóa đơn/phiếu mua phân bón hoặc thuốc bảo vệ thực vật và trích xuất các sản phẩm nông dân đã mua.
@@ -37,26 +37,16 @@ Chỉ trả về danh sách sản phẩm nông nghiệp (phân bón, thuốc BVT
   const match = imageBase64.match(/^data:(image\/\w+);base64,(.+)$/);
   if (!match) throw new Error('Ảnh không đúng định dạng.');
 
-  const body = {
-    contents: [{
-      parts: [
-        { text: prompt },
-        { inlineData: { mimeType: match[1], data: match[2] } }
-      ]
-    }],
-    generationConfig: { responseMimeType: 'application/json' }
-  };
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+  const res = await supabase.functions.invoke('gemini-proxy', {
+    body: {
+      contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: match[1], data: match[2] } }] }],
+      generationConfig: { responseMimeType: 'application/json' }
+    }
   });
+  if (res.error) throw new Error(res.error.message || 'Lỗi gọi AI quét hóa đơn.');
 
-  if (!res.ok) throw new Error(`Lỗi kết nối Gemini: ${res.statusText}`);
-
-  const data = await res.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  const data = res.data;
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Gemini không trả về dữ liệu.');
   return JSON.parse(text.trim());
 };

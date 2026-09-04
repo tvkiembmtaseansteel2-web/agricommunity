@@ -1,10 +1,12 @@
 // Bóc tách dữ liệu nhật ký từ câu nói tự nhiên bằng Gemini.
 // Ví dụ: "Hôm nay tôi bón 2 ký NPK cho 50 cây sầu riêng khu A"
 //   → { crop_type:'sau_rieng', activity_type:'bon_phan', product_name:'NPK', dosage:'2 kg', area:'khu A', plant_count:50 }
-import { supabase } from './supabaseClient';
+// Gọi qua Edge Function `gemini-proxy` (server giữ key).
+import { supabase, IS_MOCK } from './supabaseClient';
 
 const GEMINI_API_KEY = import.meta.env?.VITE_GEMINI_API_KEY;
 const GEMINI_MODEL = import.meta.env?.VITE_GEMINI_MODEL || 'gemini-3.1-flash-lite';
+const hasRealAi = () => !!GEMINI_API_KEY && !IS_MOCK;
 
 // Map tiếng Việt → enum
 const ACTIVITY_MAP = {
@@ -52,13 +54,12 @@ export const parseLocally = (text) => {
 
 // Bóc tách qua Gemini (chính xác hơn — hiểu ngữ cảnh)
 export const parseVoice = async (text) => {
-  if (!GEMINI_API_KEY) {
+  if (!hasRealAi()) {
     // offline: parse cục bộ + delay nhẹ cho thật
     await new Promise(r => setTimeout(r, 500));
     return parseLocally(text);
   }
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
     const prompt = `
 Bạn là trợ lý nhật ký nông nghiệp. Đọc câu nói của nông dân về hoạt động chăm sóc vườn và trích xuất dữ liệu.
 Trả về JSON thuần (không markdown):
@@ -73,14 +74,12 @@ Trả về JSON thuần (không markdown):
 }
 Câu nói: "${text}"
 `;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } })
+    const res = await supabase.functions.invoke('gemini-proxy', {
+      body: { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } }
     });
-    if (!res.ok) throw new Error(res.statusText);
-    const data = await res.json();
-    const out = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (res.error) throw new Error(res.error.message || 'Lỗi AI');
+    const data = res.data;
+    const out = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     const parsed = JSON.parse(out.trim());
     return { ...parseLocally(text), ...parsed, raw: text };
   } catch (e) {
