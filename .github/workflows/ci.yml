@@ -1,4 +1,4 @@
-﻿name: CI — AgriCommunity
+name: CI — AgriCommunity
 
 on:
   push:
@@ -16,8 +16,11 @@ jobs:
           node-version: 20
           cache: npm
 
+      # Dùng `npm install` thay `npm ci`: npm ci có thể hard-fail (EBADPLATFORM)
+      # trên các optionalDependencies theo-nền-tảng của esbuild (Vite/Vitest).
+      # `npm install` resolve optional deps đúng theo OS/CPU đang chạy.
       - name: Cài dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Kiểm thử (Vitest)
         run: npm test
