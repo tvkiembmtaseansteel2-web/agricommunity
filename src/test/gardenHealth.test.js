@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { computeGardenHealth, computeAllGardensHealth, computeTodayTasks, ACTIVITY_LABELS } from '../gardenHealth.js';
 
-// Helper: tạo ngày cách đây N ngày → chuỗi YYYY-MM-DD
+// Helper: tạo ngày cách đây N ngày → chuỗi YYYY-MM-DD (theo giờ địa phương,
+// khớp với logic daysSince bên gardenHealth để tránh lệch ±1 ngày do UTC).
 const daysAgo = (n) => {
   const d = new Date(Date.now() - n * 86400000);
-  return d.toISOString().split('T')[0];
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
 const garden = {

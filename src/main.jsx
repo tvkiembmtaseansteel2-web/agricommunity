@@ -4,6 +4,10 @@ import App from './App.jsx'
 import ErrorBoundary from './ErrorBoundary.jsx'
 import './index.css'
 import { initAnalytics } from './analytics'
+import { initSentry } from './sentry'
+
+// Error tracking (Sentry) — bật khi có VITE_SENTRY_DSN; dev/mock bỏ qua
+initSentry();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
