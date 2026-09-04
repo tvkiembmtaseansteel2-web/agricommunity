@@ -13,7 +13,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Vitest 4 + jsdom 30 yêu cầu Node >=22 (webidl.util.markAsUncloneable).
+          node-version: 22
           cache: npm
 
       # Dùng `npm install` thay `npm ci`: npm ci có thể hard-fail (EBADPLATFORM)
