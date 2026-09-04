@@ -423,10 +423,13 @@ Deploy date:           2026-09-04
 
 **Blockers đã xử lý:**
 1. ✅ **Gemini API key ở client** → đã chuyển sang Edge Function `gemini-proxy` (verify_jwt, key server-side, không còn trong bundle).
+2. ✅ **Backup chủ động** → GitHub Actions cron `.github/workflows/db-backup.yml` (pg_dump hằng ngày → Artifact `supabase-backup`, 30 ngày). Cần thêm secret `SUPABASE_DB_PASSWORD` (xem `SCALING_ROADMAP.md`).
+3. ✅ **Error tracking** → Sentry (`src/sentry.js`), bật khi có `VITE_SENTRY_DSN`; dev/mock bỏ qua. Cần tạo project Sentry + thêm DSN.
 
-**Blockers còn lại (cần xử lý trước khi public rộng):**
-2. **Chưa có backup chủ động** → cài PG dump hằng ngày (xem SCALING_ROADMAP).
-3. **Chưa có error tracking** → thêm Sentry (hoặc tương đương).
+**Còn lại (tùy chọn / khi cần):**
+- Đặt budget/cap trong Gemini console + giới hạn request/user phía client.
+- Export CSV cho người dùng (mục SCALING_ROADMAP).
+- Dọn test account khi public rộng.
 
 **Chấp nhận được cho MVP (khi public thử nghiệm nhỏ):**
 - Dùng subdomain Netlify (chưa domain riêng).

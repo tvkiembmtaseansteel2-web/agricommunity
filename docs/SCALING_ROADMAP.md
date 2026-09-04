@@ -37,6 +37,8 @@
 ### Giai đoạn 0–100 user (hiện tại)
 - ✅ RLS + soft-delete đã có.
 - ✅ **Backup PG dump tự động** — GitHub Actions cron `.github/workflows/db-backup.yml` chạy hằng ngày (02:30 UTC), lưu Artifact `supabase-backup` (30 ngày). Xem mục "Backup" bên dưới.
+- ✅ **Error tracking** — Sentry (`src/sentry.js`), bật khi có `VITE_SENTRY_DSN`; dev/mock bỏ qua.
+- ✅ **Gemini key ở server** — Edge Function `gemini-proxy` (verify_jwt, key không lộ).
 - 🔲 **Export CSV** cho user (nhật ký, sản lượng) — tính năng + lưới an toàn người dùng.
 
 ### Giai đoạn 100–1000 user
