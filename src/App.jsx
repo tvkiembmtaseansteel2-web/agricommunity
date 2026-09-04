@@ -1584,71 +1584,60 @@ ${response.export_warning}
               </button>
             </div>
 
-            {/* Farm statistics card */}
+            {/* 📊 Tổng hợp sản lượng thu hoạch — tổng + theo từng vườn */}
             <div className="card">
               <div className="card-title">
                 <TrendingUp size={20} color="#2e7d32" /> Tổng hợp sản lượng thu hoạch
               </div>
-              
+
+              {/* Tổng cả các vườn (theo loại cây) */}
               <div className="stats-grid">
                 <div className="stat-item">
-                  <div className="stat-val">
-                    {yields.filter(y => y.crop_type === 'sau_rieng').reduce((sum, y) => sum + y.quantity_kg, 0).toLocaleString()} kg
-                  </div>
-                  <div className="stat-lbl">Sầu riêng</div>
+                  <div className="stat-val">{yields.filter(y => y.crop_type === 'sau_rieng').reduce((s, y) => s + (y.quantity_kg || 0), 0).toLocaleString()} kg</div>
+                  <div className="stat-lbl">🌳 Sầu riêng (tổng)</div>
                 </div>
                 <div className="stat-item">
-                  <div className="stat-val">
-                    {yields.filter(y => y.crop_type === 'cafe').reduce((sum, y) => sum + y.quantity_kg, 0).toLocaleString()} kg
-                  </div>
-                  <div className="stat-lbl">Cà phê</div>
+                  <div className="stat-val">{yields.filter(y => y.crop_type === 'cafe').reduce((s, y) => s + (y.quantity_kg || 0), 0).toLocaleString()} kg</div>
+                  <div className="stat-lbl">☕ Cà phê (tổng)</div>
                 </div>
               </div>
 
-              <button className="btn btn-secondary" style={{ marginTop: '8px' }} onClick={() => setShowYieldModal(true)}>
+              {/* Theo từng vườn */}
+              {gardensList.length > 0 ? (
+                <div style={{ marginTop: '12px', borderTop: '1px dashed var(--border-color)', paddingTop: '10px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                    📍 Theo từng vườn
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {gardensList.map(g => {
+                      const gYields = yields.filter(y => y.garden_id === g.id);
+                      const total = gYields.reduce((s, y) => s + (y.quantity_kg || 0), 0);
+                      // Gom theo loại cây trong vườn
+                      const byCrop = {};
+                      gYields.forEach(y => { if (y.crop_type) byCrop[y.crop_type] = (byCrop[y.crop_type] || 0) + (y.quantity_kg || 0); });
+                      const crops = Object.entries(byCrop);
+                      return (
+                        <div key={g.id} style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', background: 'var(--primary-light)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ fontWeight: 700, fontSize: '13px' }}>{translateCrop(g.crop_type)} — {g.name}</div>
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: '#1b5e20' }}>{total.toLocaleString()} kg</div>
+                          </div>
+                          {crops.length > 0 && (
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                              {crops.map(([c, kg]) => `${translateCrop(c)}: ${kg.toLocaleString()} kg`).join(' • ')}
+                            </div>
+                          )}
+                          {total === 0 && <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>Chưa có dữ liệu thu hoạch.</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              <button className="btn btn-secondary" style={{ marginTop: '12px' }} onClick={() => setShowYieldModal(true)}>
                 + Thêm đợt thu hoạch mới
               </button>
-            </div>
-
-            {/* Recent activity summary */}
-            <div className="card">
-              <div className="card-title">
-                <BookOpen size={20} color="#2e7d32" /> Nhật ký chăm sóc gần đây
-              </div>
-              <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
-                {logs.length === 0 ? (
-                  <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '15px' }}>Chưa có nhật ký nào được ghi.</p>
-                ) : (
-                  logs.slice(0, 3).map(log => (
-                    <div key={log.id} className="log-item">
-                      <div className="log-icon">
-                        <Activity size={18} />
-                      </div>
-                      <div className="log-details">
-                        <div className="log-title">{translateActivity(log.activity_type)} - <span className={`crop-tag ${log.crop_type}`}>{translateCrop(log.crop_type)}</span></div>
-                        {log.product_name && <div style={{ fontSize: '13px', fontWeight: 500 }}>Vật tư: {log.product_name} ({log.dosage})</div>}
-                        {log.notes && <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>{log.notes}</div>}
-                        <div className="log-meta">
-                          <span>📅 {log.activity_date}</span>
-                          {(() => {
-                            const days = daysFromDate(log.activity_date);
-                            return days !== null ? <span>• {days === 0 ? 'hôm nay' : `${days} ngày trước`}</span> : null;
-                          })()}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-              {logs.length > 3 && (
-                <button 
-                  className="btn btn-secondary" 
-                  style={{ marginTop: '12px', width: '100%', padding: '8px' }} 
-                  onClick={() => setActiveTab('logs')}
-                >
-                  Xem toàn bộ nhật ký
-                </button>
-              )}
             </div>
             </>)}
 
