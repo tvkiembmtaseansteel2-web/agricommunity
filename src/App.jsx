@@ -1443,6 +1443,28 @@ ${response.export_warning}
                   </div>
                 )}
 
+                {/* 🔔 Công việc đề xuất theo TỪNG VƯỜN (rút gọn từ "Hiểu vườn") */}
+                {gardensList.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {computeAllGardensHealth(gardensList, logs, weather).filter(h => h.status !== 'good').length === 0 ? (
+                      <div style={{ background: '#e8f5e9', border: '1px solid #c8e6c9', padding: '10px 12px', borderRadius: '10px', fontSize: '13px', color: '#2e7d32', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                        <Check size={16} style={{ flexShrink: 0 }} />
+                        <div>
+                          <strong>✅ Các vườn đều ổn.</strong>
+                          <div style={{ marginTop: '2px' }}>Không có việc gì cần ưu tiên hôm nay.</div>
+                        </div>
+                      </div>
+                    ) : (
+                      computeAllGardensHealth(gardensList, logs, weather).filter(h => h.status !== 'good').map((h) => (
+                        <div key={h.garden.id} onClick={() => setOpenGardenId(h.garden.id)} style={{ cursor: 'pointer', background: h.status === 'risk' ? '#fff3e0' : 'var(--primary-light)', border: '1px solid var(--border-color)', borderLeft: `4px solid ${h.status === 'risk' ? '#e65100' : '#f9a825'}`, borderRadius: '10px', padding: '10px 12px' }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700 }}>{h.dot} {h.cropLabel} — {h.garden.name}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '3px' }}>{h.findings[0]?.text || h.summary}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
                 {/* Dựa trên nhật ký gần đây */}
                 {logs.length === 0 ? (
                   <div style={{ background: 'var(--primary-light)', border: '1px solid var(--border-color)', padding: '10px 12px', borderRadius: '10px', fontSize: '13px', color: 'var(--primary-dark)', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
@@ -1484,92 +1506,50 @@ ${response.export_warning}
                   </button>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {/* Danh sách vườn gọn — mỗi vườn 1 dòng + "Xem chi tiết" */}
                   {computeAllGardensHealth(gardensList, logs, weather).map((h) => (
-                    <div key={h.garden.id} onClick={() => setOpenGardenId(h.garden.id)} style={{
-                      border: '1px solid var(--border-color)',
-                      borderLeft: `4px solid ${h.status === 'risk' ? '#e65100' : h.status === 'warn' ? '#f9a825' : '#2e7d32'}`,
-                      borderRadius: '10px', padding: '12px',
-                      background: h.status === 'risk' ? '#fff3e0' : h.status === 'warn' ? '#fffde7' : 'var(--primary-light)',
-                      cursor: 'pointer'
-                    }}>
+                    <div
+                      key={h.garden.id}
+                      onClick={() => setOpenGardenId(h.garden.id)}
+                      style={{
+                        border: '1px solid var(--border-color)',
+                        borderLeft: `4px solid ${h.status === 'risk' ? '#e65100' : h.status === 'warn' ? '#f9a825' : '#2e7d32'}`,
+                        borderRadius: '10px', padding: '12px',
+                        background: h.status === 'risk' ? '#fff3e0' : h.status === 'warn' ? '#fffde7' : 'var(--primary-light)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {/* Dòng 1: tên + trạng thái */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)' }}>
                           {h.cropLabel} — {h.garden.name}
                         </div>
-                        <span style={{ fontSize: '13px', fontWeight: 700 }}>{h.dot} {h.statusLabel}</span>
+                        <span style={{ fontSize: '13px', fontWeight: 700, flexShrink: 0, marginLeft: '8px' }}>{h.dot} {h.statusLabel}</span>
                       </div>
 
-                      {/* 📍 Thời tiết theo đúng khu vực vườn này */}
-                      {(() => {
-                        const gw = gardenWeather[h.garden.id];
-                        if (!gw) return null;
-                        return (
-                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
-                            {gw.desc} • {gw.temp}°C
-                            {gw.rain > 0 ? ' • 🌧️ mưa ' + gw.rain + 'mm' : ''}
-                            <span style={{ opacity: 0.7 }}>• vườn này</span>
-                            {(() => { const c = getGardenCoords(h.garden); return (Number.isNaN(parseFloat(c.latitude)) ? '' : null); })()}
-                          </div>
-                        );
-                      })()}
-
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>{h.summary}</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '8px' }}>
-                        {h.findings.map((f, i) => (
-                          <div key={i} style={{
-                            fontSize: '12px', display: 'flex', gap: '7px', alignItems: 'flex-start',
-                            color: f.level === 'risk' ? '#b71c1c' : f.level === 'warn' ? '#8d6e00' : '#1b5e20'
-                          }}>
-                            <span style={{ flexShrink: 0 }}>{f.icon}</span>
-                            <span style={{ lineHeight: 1.4 }}>{f.text}</span>
-                          </div>
-                        ))}
+                      {/* Dòng 2: thời tiết khu vực vườn + việc cần làm */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                        {(() => {
+                          const gw = gardenWeather[h.garden.id];
+                          return gw ? <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>{gw.icon} {gw.temp}°C {gw.rain > 0 ? '🌧️' + gw.rain + 'mm' : ''}</span> : null;
+                        })()}
+                        <span style={{ flex: 1, minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {h.findings[0]?.text || h.summary}
+                        </span>
                       </div>
 
-                      {/* 🧩 Trạng thái từng khu (Zone) trong vườn — Phase B */}
-                      {(() => {
-                        const gz = getGardenZones(h.garden);
-                        if (gz.length === 0) return null;
-                        const zHealth = computeAllZonesHealth(gz, issues, logs, weather);
-                        return (
-                          <div style={{ marginTop: '10px', borderTop: '1px dashed var(--border-color)', paddingTop: '10px' }}>
-                            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                              🧩 Khu vực trong vườn
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              {zHealth.map((zh) => (
-                                <div key={zh.zone.id ?? zh.zone.code} style={{
-                                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                  background: zh.status === 'risk' ? '#fff3e0' : zh.status === 'warn' ? '#fffde7' : '#f5f5f5',
-                                  border: '1px solid var(--border-color)', borderLeft: `4px solid ${zh.status === 'risk' ? '#e65100' : zh.status === 'warn' ? '#f9a825' : '#2e7d32'}`,
-                                  borderRadius: '8px', padding: '8px 10px'
-                                }}>
-                                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                    {zh.dot} Khu {zh.code}
-                                    <div style={{ fontWeight: 400, fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                      {zh.unresolvedIssues.length > 0
-                                        ? `⚠️ ${zh.unresolvedIssues.length} vấn đề chưa xử lý`
-                                        : zh.findings[0]?.text}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })()}
-
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
-                        <button className="btn btn-secondary" style={{ padding: '7px 12px', fontSize: '12px' }} onClick={(e) => { e.stopPropagation(); setOpenGardenId(h.garden.id); }}>
+                      {/* Dòng 3: nút hành động gọn */}
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                        <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '12px' }} onClick={(e) => { e.stopPropagation(); setOpenGardenId(h.garden.id); }}>
                           👁️ Xem chi tiết
                         </button>
-                        <button className="btn btn-secondary" style={{ padding: '7px 12px', fontSize: '12px' }} onClick={(e) => { e.stopPropagation(); setActiveTab('logs'); }}>
+                        <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '12px' }} onClick={(e) => { e.stopPropagation(); setActiveTab('logs'); }}>
                           + Ghi nhật ký
                         </button>
                         {h.status !== 'good' && (
-                          <button className="btn btn-secondary" style={{ padding: '7px 12px', fontSize: '12px', background: '#e65100', border: 'none', color: 'white' }} onClick={(e) => { e.stopPropagation(); setActiveTab('ai'); }}>
-                            🔍 Hỏi Bác sĩ AI
+                          <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '12px', background: '#e65100', border: 'none', color: 'white' }} onClick={(e) => { e.stopPropagation(); setActiveTab('ai'); }}>
+                            🔍 Bác sĩ AI
                           </button>
                         )}
                       </div>
