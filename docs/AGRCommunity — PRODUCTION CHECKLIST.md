@@ -118,8 +118,9 @@
 - [x] Đăng nhập bằng SĐT + mật khẩu.
 - [x] Logout.
 - [x] Session refresh (Supabase tự xử lý qua JWT).
-- [ ] Forgot/reset password (chưa có UI — nếu cần, thêm; auth bằng email convention cần cho phép domain).
-- [ ] Email verification KHÔNG dùng (auth phone-based) — nên ghi rõ là cố ý.
+- [x] **Đổi mật khẩu** — dùng session hiện tại (không cần mật khẩu cũ) + nút xác nhận vân tay/khuôn mặt (WebAuthn) nếu thiết bị hỗ trợ; trong "Tôi → Đổi mật khẩu".
+- [ ] **Quên mật khẩu khi ĐÃ đăng xuất** — vì auth phone (không SMS/email thật), cần **SMS OTP** (bật phone auth + Twilio) hoặc admin đặt lại. Ghi rõ là cần xử lý khi public rộng.
+- [x] Email verification KHÔNG dùng (auth phone-based) — nên ghi rõ là cố ý.
 - [x] User chưa login không vào được trang private.
 - [x] **Redirect URL Production** đã set: `https://agricommunity.netlify.app` + `/**` (site_url + uri_allow_list).
 
