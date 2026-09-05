@@ -43,6 +43,7 @@ import KBAdmin from './KBAdmin';
 import GardenMap from './GardenMap';
 import RoleManager from './RoleManager';
 import GardenDetail from './GardenDetail';
+import ChangePassword from './ChangePassword';
 import { uploadFarmImage } from './storageService';
 import { scanReceipt, fileToBase64 } from './receiptScanner';
 
@@ -2616,6 +2617,7 @@ ${response.export_warning}
                 { key: 'stats', label: '📊 Thống kê' },
                 { key: 'export', label: '🚫 Chất cấm' },
                 { key: 'profile', label: '👤 Hồ sơ' },
+                { key: 'password', label: '🔑 Đổi mật khẩu' },
                 ...(isAdminV0 ? [{ key: 'kb', label: '🧠 KB Admin' }] : []),
                 ...(isAdminV0 ? [{ key: 'roles', label: '🔐 Phân quyền' }] : [])
               ].map(s => (
@@ -2649,6 +2651,9 @@ ${response.export_warning}
 
             {/* Phân quyền người dùng (chỉ V0) */}
             {profileSection === 'roles' && isAdminV0 && <RoleManager currentRole={userRole} onRolesChanged={fetchUserData} />}
+
+            {/* Đổi mật khẩu — mọi người dùng */}
+            {profileSection === 'password' && <ChangePassword />}
 
             {/* Hồ sơ */}
             {profileSection === 'profile' && (
