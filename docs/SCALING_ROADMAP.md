@@ -40,7 +40,7 @@
 - ✅ **Error tracking** — Sentry (`src/sentry.js`), bật khi có `VITE_SENTRY_DSN`; dev/mock bỏ qua.
 - ✅ **Gemini key ở server** — Edge Function `gemini-proxy` (verify_jwt, key không lộ).
 - ✅ **Hạn mức AI + phân gói (Phase 9)** — `profiles.plan` (free/pro) + bảng `ai_usage`; `gemini-proxy` chặn vượt hạn mức (free=5, pro=100 lượt/ngày); UI hiện "lượt còn lại" + nút nâng cấp; Admin bật Pro trong "Phân quyền". Bảo vệ quota free + giới hạn chi phí khi lên paid.
-- 🔲 **Export CSV** cho user (nhật ký, sản lượng) — tính năng + lưới an toàn người dùng.
+- ✅ **Export CSV** — nút "⬇️ Xuất CSV" ở tab Nhật ký (nhật ký) + card sản lượng (sản lượng). Tải file `.csv` UTF-8 (BOM) mở đúng tiếng Việt trong Excel. Lưới an toàn dữ liệu cho nông dân (tự lưu dữ liệu của mình).
 - 🔲 **Thu phí tự động** (Momo/Stripe) cho gói Pro — hiện admin bật thủ công.
 
 ### Giai đoạn 100–1000 user
