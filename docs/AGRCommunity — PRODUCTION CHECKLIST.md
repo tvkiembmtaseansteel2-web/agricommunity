@@ -434,9 +434,10 @@ Deploy date:           2026-09-04
 **Chấp nhận được cho MVP (khi public thử nghiệm nhỏ):**
 - Dùng subdomain Netlify (chưa domain riêng).
 - Không email verification (cố ý — auth phone).
-- Test account còn trong DB (sẽ dọn khi public).
+- Đã dọn test account (4 tài khoản test RLS/Role đã xóa; giữ admin `0332643233` + demo `0901234567`).
 
 **Ghi chú:**
 - Đã deploy production + verify smoke test (đăng nhập, thời tiết, sản lượng, AI).
 - Soft-delete đã áp dụng (chống mất dữ liệu).
+- Đã dọn test account 2026-09-05.
 - Khi user tăng, đọc `docs/SCALING_ROADMAP.md` + `implementation_plan.md` để biết bước mở rộng tiếp theo.
