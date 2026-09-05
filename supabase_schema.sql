@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     consent_granted BOOLEAN DEFAULT FALSE NOT NULL, -- Đồng ý thu thập dữ liệu theo luật
     consent_date TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
     is_admin BOOLEAN DEFAULT FALSE NOT NULL, -- Phân quyền admin để duyệt bài
+    plan TEXT NOT NULL DEFAULT 'free', -- Gói dịch vụ: 'free' | 'pro' (admin bật pro)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -380,3 +381,50 @@ CREATE POLICY "Thành viên upload ảnh vườn"
 CREATE POLICY "Chủ ảnh xóa ảnh của mình"
     ON storage.objects FOR DELETE
     USING (bucket_id = 'farm-images' AND owner = auth.uid());
+
+-- ============================================================================
+-- BẢNG HẠN MỨC AI + PHÂN GÓI (Phase 9)
+-- ============================================================================
+-- profiles.plan: 'free' | 'pro' (admin bật pro). Hạn mức AI/user/ngày.
+-- ai_usage: đếm số lượt dùng AI/user/ngày → áp hạn mức (bảo vệ quota + giới hạn chi phí).
+CREATE TABLE IF NOT EXISTS public.ai_usage (
+    id BIGSERIAL PRIMARY KEY,
+    profile_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    use_date DATE DEFAULT CURRENT_DATE NOT NULL,
+    request_count INT NOT NULL DEFAULT 1,
+    UNIQUE (profile_id, use_date)
+);
+
+ALTER TABLE public.ai_usage ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "ai_usage user xem của mình" ON public.ai_usage FOR SELECT USING (auth.uid() = profile_id);
+CREATE POLICY "ai_usage user không tự chỉnh" ON public.ai_usage FOR INSERT WITH CHECK (false);
+CREATE POLICY "ai_usage user không tự sửa" ON public.ai_usage FOR UPDATE USING (false);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_user_date ON public.ai_usage (profile_id, use_date);
+
+-- Hạn mức theo gói: free=5, pro=100
+CREATE OR REPLACE FUNCTION public.get_ai_usage_limit(p_plan TEXT)
+RETURNS INT AS $$
+  SELECT CASE WHEN p_plan = 'pro' THEN 100 ELSE 5 END;
+$$ LANGUAGE sql STABLE;
+
+-- Số lượt ĐÃ dùng hôm nay của user
+CREATE OR REPLACE FUNCTION public.get_ai_usage_today(p_user UUID)
+RETURNS INT AS $$
+  SELECT COALESCE((SELECT request_count FROM public.ai_usage
+                   WHERE profile_id = p_user AND use_date = CURRENT_DATE), 0);
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
+
+-- Ghi nhận 1 lượt dùng, trả về lượt còn lại (SECURITY DEFINER — edge function dùng)
+CREATE OR REPLACE FUNCTION public.increment_ai_usage(p_user UUID)
+RETURNS INT AS $$
+DECLARE cur INT; lim INT;
+BEGIN
+  INSERT INTO public.ai_usage (profile_id, use_date, request_count)
+  VALUES (p_user, CURRENT_DATE, 1)
+  ON CONFLICT (profile_id, use_date)
+  DO UPDATE SET request_count = public.ai_usage.request_count + 1
+  RETURNING request_count INTO cur;
+  SELECT public.get_ai_usage_limit((SELECT plan FROM public.profiles WHERE id = p_user)) INTO lim;
+  RETURN lim - cur;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
