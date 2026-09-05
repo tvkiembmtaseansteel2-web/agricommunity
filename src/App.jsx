@@ -28,6 +28,7 @@ import {
 import { supabase } from './supabaseClient';
 import { analyzeCropDisease } from './geminiService';
 import { computeAllGardensHealth, computeTodayTasks, fmtDateShort } from './gardenHealth';
+import { toCSV, downloadCSV, fmtDateCSV, CSV_ACTIVITY, CSV_CROP } from './csvExport';
 import { fetchWeatherData, reverseGeocode, getCurrentPosition, coordsFromProfile, DEFAULT_LABEL } from './weatherService';
 import { resolveZoneFromGps, generateSampleZones } from './zoneService';
 import { computeAllZonesHealth, ISSUE_STATUS_LABELS } from './zoneHealth';
@@ -486,6 +487,33 @@ export default function App() {
     if (activeTab === 'ai') fetchAiQuota();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, currentUser?.id]);
+
+  // ====== Export CSV (nhật ký + sản lượng) ======
+  const exportLogsCSV = () => {
+    const rows = logs.map((l) => ({
+      'Ngày': fmtDateCSV(l.activity_date),
+      'Loại hoạt động': CSV_ACTIVITY[l.activity_type] || l.activity_type,
+      'Cây trồng': CSV_CROP[l.crop_type] || l.crop_type || '',
+      'Vườn': gardensList.find(g => g.id === l.garden_id)?.name || '',
+      'Sản phẩm': l.product_name || '',
+      'Liều lượng': l.dosage || '',
+      'Ghi chú': l.notes || '',
+    }));
+    downloadCSV(`nhat-ky-${new Date().toISOString().slice(0,10)}.csv`, toCSV(rows));
+  };
+
+  const exportYieldsCSV = () => {
+    const rows = yields.map((y) => ({
+      'Ngày thu hoạch': fmtDateCSV(y.harvest_date),
+      'Cây trồng': CSV_CROP[y.crop_type] || y.crop_type || '',
+      'Vườn': gardensList.find(g => g.id === y.garden_id)?.name || '',
+      'Sản lượng (kg)': y.quantity_kg,
+      'Phẩm cấp': y.quality_grade || '',
+      'Doanh thu (đ)': y.revenue_vnd || '',
+      'Ghi chú': y.notes || '',
+    }));
+    downloadCSV(`san-luong-${new Date().toISOString().slice(0,10)}.csv`, toCSV(rows));
+  };
 
   // Bật định vị GPS của nông dân → lấy thời tiết theo vị trí thực tế, theo thời gian thực.
   // Đồng thời điền tọa độ vào hồ sơ (nông dân có thể lưu lại).
@@ -1617,8 +1645,11 @@ ${response.export_warning}
 
             {/* 📊 Tổng hợp sản lượng thu hoạch — tổng + theo từng vườn */}
             <div className="card">
-              <div className="card-title">
-                <TrendingUp size={20} color="#2e7d32" /> Tổng hợp sản lượng thu hoạch
+              <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span><TrendingUp size={20} color="#2e7d32" /> Tổng hợp sản lượng thu hoạch</span>
+                <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '12px' }} onClick={exportYieldsCSV}>
+                  ⬇️ Xuất CSV
+                </button>
               </div>
 
               {/* Tổng cả các vườn (theo loại cây) */}
@@ -1843,7 +1874,12 @@ ${response.export_warning}
 
             {/* Danh sách toàn bộ nhật ký */}
             <div className="card">
-              <div className="card-title"><BookOpen size={18} /> Nhật ký lịch sử chăm sóc</div>
+              <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span><BookOpen size={18} /> Nhật ký lịch sử chăm sóc</span>
+                <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '12px' }} onClick={exportLogsCSV}>
+                  ⬇️ Xuất CSV
+                </button>
+              </div>
               <div>
                 {logs.length === 0 ? (
                   <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '15px' }}>Chưa có nhật ký nào được ghi.</p>
