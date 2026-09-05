@@ -34,7 +34,15 @@ jobs:
           echo "OK: có SUPABASE_DB_PASSWORD"
 
       - name: Cài PostgreSQL client (pg_dump)
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+        run: |
+          sudo apt-get update -y
+          # Cài pg_dump đúng version 17 để khớp server (tránh "server version mismatch").
+          # repo postgres.org/pgdg có sẵn client 17 cho ubuntu-latest.
+          sudo apt-get install -y curl ca-certificates
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
+          echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt jammy-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client-17
 
       - name: Backup database
         env:
