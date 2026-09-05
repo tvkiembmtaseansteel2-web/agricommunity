@@ -39,7 +39,9 @@
 - ✅ **Backup PG dump tự động** — GitHub Actions cron `.github/workflows/db-backup.yml` chạy hằng ngày (02:30 UTC), lưu Artifact `supabase-backup` (30 ngày). Xem mục "Backup" bên dưới.
 - ✅ **Error tracking** — Sentry (`src/sentry.js`), bật khi có `VITE_SENTRY_DSN`; dev/mock bỏ qua.
 - ✅ **Gemini key ở server** — Edge Function `gemini-proxy` (verify_jwt, key không lộ).
+- ✅ **Hạn mức AI + phân gói (Phase 9)** — `profiles.plan` (free/pro) + bảng `ai_usage`; `gemini-proxy` chặn vượt hạn mức (free=5, pro=100 lượt/ngày); UI hiện "lượt còn lại" + nút nâng cấp; Admin bật Pro trong "Phân quyền". Bảo vệ quota free + giới hạn chi phí khi lên paid.
 - 🔲 **Export CSV** cho user (nhật ký, sản lượng) — tính năng + lưới an toàn người dùng.
+- 🔲 **Thu phí tự động** (Momo/Stripe) cho gói Pro — hiện admin bật thủ công.
 
 ### Giai đoạn 100–1000 user
 - 🔲 Nâng lên **Supabase Pro** để bật **PITR (Point-in-time Recovery)** — phục hồi
@@ -64,6 +66,17 @@
 | **Gemini API** | **Đáng chú ý nhất** — trả theo số request AI Doctor |
 
 → Ưu tiên tối ưu chi phí: giới hạn/cache **Gemini** (AI Doctor) trước tiên.
+
+## 💳 Gói dịch vụ (tạo doanh thu khi vượt tier free)
+
+| Gói | Hạn mức AI/ngày | Đối tượng | Giá đề xuất |
+|---|---|---|---|
+| **Free** | 5 lượt AI | Nông dân mới, dùng thử | 0đ |
+| **Pro** | 100 lượt AI | Nông dân chuyên, dùng nhiều | ~50.000–99.000đ/tháng |
+
+- **Cách bật Pro:** Admin bật trong **"Phân quyền"** (RoleManager → nút ⭐ Gói Pro). Chưa cần thanh toán tự động.
+- **Khi cần thu phí tự động:** tích hợp Momo/VNPay/Stripe (ghi trong mục "Giai đoạn sau"), mỗi user có hạn mức riêng.
+- **Lưu ý:** hạn mức free=5 là để **vừa quota Gemini free tier** (nếu nhiều user hơn cần giảm xuống hoặc lên paid Gemini). Đây là điểm cân bằng giữa trải nghiệm & chi phí.
 
 ---
 
