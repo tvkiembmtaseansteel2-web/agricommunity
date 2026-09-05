@@ -67,12 +67,13 @@
 
 ---
 
-## 🗄️ Backup & Restore (Blocker #2)
+## 🗄️ Backup & Restore (Blocker #2) — ✅ Đã chạy thành công
 
 ### Backup tự động (GitHub Actions cron)
 - File: `.github/workflows/db-backup.yml` — chạy **02:30 UTC hằng ngày** (+ chạy tay qua "Run workflow").
-- Lệnh: `pg_dump` toàn DB → gzip → **Artifact `supabase-backup`** (giữ 30 ngày, tải từ **Actions → Artifacts**).
+- Lệnh: `pg_dump` (bản **17**, khớp server) toàn DB → gzip → **Artifact `supabase-backup`** (giữ 30 ngày, tải từ **Actions → Artifacts**).
 - Script thủ công (máy có `pg_dump`): `scripts/backup-supabase.sh`.
+- **Đã xác minh**: workflow chạy success, artifact ~307 KB. (Lưu ý kỹ thuật: dùng biến `PG*` thay URL string để tránh lỗi ký tự đặc biệt trong password; cài `postgresql-client-17` để khớp server.)
 
 ### CẤU HÌNH 1 LẦN (bắt buộc để chạy):
 Thêm **GitHub Secret**:

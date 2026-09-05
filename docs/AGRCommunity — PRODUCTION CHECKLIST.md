@@ -371,15 +371,15 @@ main (GitHub) ── push ──> CI Actions (test+build) ──> deploy dist (N
 - [x] Auth redirect đúng.
 - [x] Core user flow hoạt động.
 - [x] Mobile hoạt động cơ bản.
-- [ ] Backup hoạt động (chưa có).
-- [ ] Error tracking (chưa có).
+- [x] **Backup hoạt động** (`.github/workflows/db-backup.yml` — đã chạy success, artifact 307KB).
+- [x] **Error tracking** (Sentry — đã cấu hình `VITE_SENTRY_DSN` + deploy).
 - [ ] Chi phí trong budget (ước tính OK, cần đặt cap AI).
 
 ## NO-GO nếu:
 - [x] User xem được dữ liệu user khác → KHÔNG (đã chặn).
-- [x] Secret/API key expose → CÓ GEMINI KEY (chưa xử lý — đây là lý do cân nhắc khi public rộng).
-- [ ] DB chưa backup (đúng — chưa có backup chủ động).
-- [ ] Production dùng DEV DB → KHÔNG.
+- [x] Secret/API key expose → đã xử lý Gemini (Edge Function), KHÔNG còn trong bundle.
+- [x] DB chưa backup → ĐÃ CÓ backup chủ động (GitHub Actions).
+- [x] Production dùng DEV DB → KHÔNG.
 - [ ] Core flow lỗi → KHÔNG.
 
 ---
