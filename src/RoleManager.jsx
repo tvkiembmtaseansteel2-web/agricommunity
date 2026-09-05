@@ -20,7 +20,7 @@ export default function RoleManager({ currentRole, onRolesChanged }) {
     setLoading(true);
     // Chỉ admin V0 (RLS bảo vệ) xem được toàn bộ profiles. Chỉ lấy các cột cần thiết.
     const { data, error } = await supabase.from('profiles')
-      .select('id, full_name, phone_number, user_role, created_at')
+      .select('id, full_name, phone_number, user_role, plan, created_at')
       .order('created_at', { ascending: false })
       .limit(200);
     if (data) setUsers(data);
@@ -43,6 +43,18 @@ export default function RoleManager({ currentRole, onRolesChanged }) {
       reload();
       onRolesChanged?.();
     }
+    setSavingId(null);
+  };
+
+  // Bật/tắt gói Pro (hạn mức AI): admin V0 thao tác.
+  const setPlan = async (u, plan) => {
+    if (plan === u.plan) return;
+    if (!window.confirm(`${plan === 'pro' ? '⭐ Nâng cấp' : '⬇️ Hạ'} gói ${u.full_name || u.phone_number} thành ${plan === 'pro' ? 'PRO (100 lượt AI/ngày)' : 'Miễn phí (5 lượt AI/ngày)'}?`)) return;
+    setSavingId(u.id);
+    setMsg('');
+    const { error } = await supabase.from('profiles').update({ plan }).eq('id', u.id);
+    if (error) setMsg('❌ ' + error.message);
+    else { setMsg(`✅ ${u.full_name || u.phone_number} → ${plan === 'pro' ? 'Gói PRO' : 'Gói Miễn phí'}`); reload(); }
     setSavingId(null);
   };
 
@@ -92,15 +104,31 @@ export default function RoleManager({ currentRole, onRolesChanged }) {
                     {u.phone_number && <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{u.phone_number}</div>}
                   </div>
                 </div>
-                <select
-                  className="form-select"
-                  style={{ width: 'auto', minWidth: '150px', fontSize: '13px', padding: '8px' }}
-                  value={u.user_role || 'farmer'}
-                  disabled={savingId === u.id}
-                  onChange={(e) => setRole(u, e.target.value)}
-                >
-                  {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <select
+                    className="form-select"
+                    style={{ width: 'auto', minWidth: '150px', fontSize: '13px', padding: '8px' }}
+                    value={u.user_role || 'farmer'}
+                    disabled={savingId === u.id}
+                    onChange={(e) => setRole(u, e.target.value)}
+                  >
+                    {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  </select>
+                  {/* Gói dịch vụ (hạn mức AI): Free / Pro */}
+                  <button
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '8px 10px', fontSize: '12px',
+                      background: (u.plan || 'free') === 'pro' ? '#1b5e20' : 'var(--primary-light)',
+                      border: (u.plan || 'free') === 'pro' ? 'none' : '1px solid var(--border-color)',
+                      color: (u.plan || 'free') === 'pro' ? 'white' : 'var(--text-secondary)',
+                    }}
+                    disabled={savingId === u.id}
+                    onClick={() => setPlan(u, (u.plan || 'free') === 'pro' ? 'free' : 'pro')}
+                  >
+                    {(u.plan || 'free') === 'pro' ? '⭐ Gói Pro' : '🎫 Gói Free'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

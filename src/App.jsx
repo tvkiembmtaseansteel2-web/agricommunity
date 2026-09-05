@@ -214,6 +214,8 @@ export default function App() {
   const [chatImage, setChatImage] = useState(null); // Ảnh lá cây chính (base64) — giữ tương thích
   const [chatImages, setChatImages] = useState([]); // Mảng tối đa 3 ảnh gửi cho AI chẩn đoán
   const chatEndRef = useRef(null);
+  // Hạn mức AI (lượt còn lại/ngày + gói) — hiển thị cho nông dân
+  const [aiQuota, setAiQuota] = useState(null); // { plan, used, limit, remaining }
 
   // Chế độ phân tích của Bác sĩ AI: 'myGarden' (vườn của nông dân) | 'other' (vùng/vườn khác)
   const [aiMode, setAiMode] = useState('myGarden');
@@ -461,6 +463,29 @@ export default function App() {
   const fetchAllGardenWeather = () => {
     (gardensList || []).forEach((g) => fetchGardenWeather(g));
   };
+
+  // Đọc hạn mức AI hiện tại (gói + lượt đã dùng + còn lại) → hiển thị banner.
+  const fetchAiQuota = async () => {
+    if (!currentUser?.id) return;
+    try {
+      const { data: prof } = await supabase.from('profiles')
+        .select('plan').eq('id', currentUser.id).maybeSingle();
+      const plan = prof?.plan || 'free';
+      const limit = plan === 'pro' ? 100 : 5;
+      const { data: usage } = await supabase.from('ai_usage')
+        .select('request_count').eq('profile_id', currentUser.id)
+        .eq('use_date', new Date().toISOString().slice(0, 10)).maybeSingle();
+      const used = usage?.request_count || 0;
+      setAiQuota({ plan, used, limit, remaining: Math.max(0, limit - used) });
+    } catch (e) {
+      console.warn('Không đọc được hạn mức AI:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'ai') fetchAiQuota();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, currentUser?.id]);
 
   // Bật định vị GPS của nông dân → lấy thời tiết theo vị trí thực tế, theo thời gian thực.
   // Đồng thời điền tọa độ vào hồ sơ (nông dân có thể lưu lại).
@@ -747,6 +772,12 @@ export default function App() {
         isOther ? [] : logs,
         { vineyardMode: isOther ? 'other' : 'myGarden', cropHint }
       );
+
+      // Cập nhật hạn mức AI để hiển thị "lượt còn lại" / "hết lượt"
+      if (response?.__quota) setAiQuota(response.__quota);
+      if (response?.limit_reached) {
+        setAiQuota({ plan: 'free', used: 1000, limit: 5, remaining: 0 }); // ép hiển thị "hết lượt"
+      }
 
       // Độ tin cậy
       const confLabel = { cao: 'Cao', trung_binh: 'Trung bình', thap: 'Thấp' };
@@ -1853,6 +1884,28 @@ ${response.export_warning}
                 Chụp ảnh lá/thân/quả có dấu hiệu bất thường để AI hỗ trợ nhận diện sâu bệnh, thiếu chất
                 (sầu riêng, cà phê, hồ tiêu). Kết quả mang tính <strong>tham khảo</strong>, không thay thế kiểm tra thực tế của cán bộ kỹ thuật.
               </p>
+
+              {/* 📊 Hạn mức AI / gói dịch vụ */}
+              {aiQuota && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+                  background: aiQuota.remaining <= 0 ? '#fff3e0' : '#e8f5e9',
+                  border: `1px solid ${aiQuota.remaining <= 0 ? '#ffe0b2' : '#c8e6c9'}`,
+                  borderRadius: '10px', padding: '10px 12px', marginBottom: '10px',
+                }}>
+                  <div style={{ fontSize: '12px' }}>
+                    <span style={{ fontWeight: 700 }}>{aiQuota.remaining > 0 ? `🎫 Còn ${aiQuota.remaining} lượt AI hôm nay` : '🚫 Đã hết lượt AI hôm nay'}</span>
+                    <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>(
+                      {aiQuota.plan === 'pro' ? 'Gói Pro' : 'Gói miễn phí'} • đã dùng {aiQuota.used}/{aiQuota.limit}
+                    )</span>
+                  </div>
+                  {aiQuota.remaining <= 0 && (
+                    <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '12px', background: '#e65100', border: 'none', color: 'white' }} onClick={() => setActiveTab('profile')}>
+                      ⭐ Nâng cấp Pro
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Chế độ phân tích: vườn của tôi (bám nhật ký) ↔ vùng/vườn khác (độc lập) */}
               <div style={{ background: 'var(--primary-light)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', marginBottom: '12px' }}>

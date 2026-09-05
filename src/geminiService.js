@@ -12,13 +12,18 @@ const GEMINI_MODEL = import.meta.env?.VITE_GEMINI_MODEL || 'gemini-3.1-flash-lit
 const hasRealAi = () => !!GEMINI_API_KEY && !IS_MOCK;
 
 // Gọi Gemini qua Edge Function (server giữ key) — an toàn cho Production.
+// Trả về { data, quota } với quota = { plan, used, limit, remaining } (nếu có).
 export const callGemini = async (contents, generationConfig = { responseMimeType: 'application/json' }) => {
   const { data, error } = await supabase.functions.invoke('gemini-proxy', {
     body: { contents, generationConfig }
   });
   if (error) throw error;
-  return data;
+  const quota = data?.__quota || null;
+  return { data, quota };
 };
+
+// Đọc thông tin hạn mức AI hiện tại (nếu đã có từ lần gọi trước).
+export const getQuotaFromResponse = (quota) => quota || null;
 
 // Nhãn hoạt động chăm sóc (ánh xạ từ logs.activity_type) — dùng để đưa vào prompt
 const ACTIVITY_LABELS = {
@@ -253,14 +258,26 @@ Quy tắc BẮT BUỘC:
 
     contents.push({ parts });
 
-    const response = await callGemini(contents, { responseMimeType: 'application/json' });
+    const { data, quota } = await callGemini(contents, { responseMimeType: 'application/json' });
 
-    const resultText = response.candidates?.[0]?.content?.parts?.[0]?.text;
+    const resultText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!resultText) throw new Error('Gemini không trả về kết quả.');
 
     // Parse chuỗi JSON nhận được từ Gemini
-    return JSON.parse(resultText.trim());
+    const parsed = JSON.parse(resultText.trim());
+    // Đính kèm hạn mức để UI hiển thị "lượt còn lại"
+    if (quota) parsed.__quota = quota;
+    return parsed;
   } catch (error) {
+    // Hết lượt AI (edge function trả 429 limit_reached) → trả object có cờ limit_reached
+    if (error?.message === 'limit_reached' || (error?.context?.message || '').includes('limit_reached')) {
+      return {
+        limit_reached: true,
+        diagnosis: 'Bạn đã dùng hết lượt AI hôm nay.',
+        explanation: 'Nâng gói Pro để tiếp tục dùng Bác sĩ AI không giới hạn.',
+        __quota: error?.context?.__quota || null,
+      };
+    }
     console.error('Lỗi khi gọi Gemini API:', error);
     // Fallback sang mock chẩn đoán nếu API gặp lỗi mạng/key sai
     return {
