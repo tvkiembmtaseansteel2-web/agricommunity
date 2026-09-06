@@ -13,3 +13,9 @@ enabled = true
 # Đây là tầng bảo vệ chính: GEMINI_API_KEY nằm ở server, không lộ trong bundle client.
 verify_jwt = true
 enabled = true
+
+[functions.kb-from-video]
+# Chỉ admin gọi (verify_jwt=true) — bóc video YouTube → kiểm chứng chéo → raw_articles draft.
+# Chống người lạ gọi tốn tài nguyên / chèn nguồn không tin cậy.
+verify_jwt = true
+enabled = true
