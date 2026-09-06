@@ -127,16 +127,23 @@ UPDATE public.gardens SET deleted_at = NULL WHERE id = <id>;
 
 ### Pipeline hiện tại
 ```
-Crawler (RSS) → raw_articles (draft) ─┐
-Admin nhập tay                            ├─→ kb_entries (published) → AI RAG
-kb-from-video (YouTube) → draft ──────────┘
+Crawler (RSS) → raw_articles ─┐
+kb-from-video (YouTube) ──────┼─→ kb-ingest (AI trích) → kb_entries (published/draft) → AI RAG
+Admin nhập tay ───────────────┘
 ```
+
+### Tầng 2 — kb-ingest (tự động hóa raw_articles → kb_entries) ✅
+- Edge Function `kb-ingest` (verify_jwt=true): đọc `raw_articles` chưa xử lý → AI trích cấu trúc `kb_entries`.
+- **Thông minh phân loại**: nếu không phải bệnh/dinh dưỡng cụ thể (hội thảo, tin chung) → `skip`.
+- `confidence=cao` → `status='published'` (vào AI ngay); mơ hồ/liều không chắc → `draft` (chờ admin).
+- Đánh dấu `raw_articles.status='ingested'` → không xử lý lại.
+- Đã chạy: từ 11 bài thô → **4 bài thành KB** (rỉ sắt, xì mủ, đất chua pH, đất chua). KB: 13 → **17 bản ghi**.
 
 ### Quy tắc kiểm chứng (chống nội dung sai)
 1. **Chỉ nguồn whitelist**: bảng `video_sources` (credibility 0–3). Chỉ kênh **≥2** (đáng tin) mới được đưa vào.
 2. **Đối chiếu chéo**: function `kb-from-video` so nội dung với `kb_entries` đã duyệt → cờ `conflict` nếu hoạt chất mâu thuẫn.
-3. **Chỉ ghi draft**: tuyệt đối không đưa trực tiếp vào AI; admin/expert duyệt mới `published`.
-4. **Hoạt chất/liều lượng**: nếu video nêu nhưng không chắc → gắn cờ "cần xác minh", không tự tin.
+3. **Chỉ ghi draft khi mơ hồ**: tự động `published` chỉ khi confidence cao; còn lại chờ admin duyệt.
+4. **Hoạt chất/liều lượng**: nếu nguồn nêu nhưng không chắc → gắn cờ "cần xác minh", không tự tin.
 
 ### Cách dùng kb-from-video
 1. Client bóc transcript (youtube-transcript-api) → gọi `functions.invoke('kb-from-video', {videoId, channelName, transcript, videoTitle})`.
