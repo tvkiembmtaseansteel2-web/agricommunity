@@ -19,3 +19,8 @@ enabled = true
 # Chống người lạ gọi tốn tài nguyên / chèn nguồn không tin cậy.
 verify_jwt = true
 enabled = true
+
+[functions.kb-ingest]
+# Chỉ admin gọi (verify_jwt=true) — tự động trích raw_articles → kb_entries (Tầng 2).
+verify_jwt = true
+enabled = true
