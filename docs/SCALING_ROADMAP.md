@@ -41,6 +41,7 @@
 - ✅ **Gemini key ở server** — Edge Function `gemini-proxy` (verify_jwt, key không lộ).
 - ✅ **Hạn mức AI + phân gói (Phase 9)** — `profiles.plan` (free/pro) + bảng `ai_usage`; `gemini-proxy` chặn vượt hạn mức (free=5, pro=100 lượt/ngày); UI hiện "lượt còn lại" + nút nâng cấp; Admin bật Pro trong "Phân quyền". Bảo vệ quota free + giới hạn chi phí khi lên paid.
 - ✅ **Export CSV** — nút "⬇️ Xuất CSV" ở tab Nhật ký (nhật ký) + card sản lượng (sản lượng). Tải file `.csv` UTF-8 (BOM) mở đúng tiếng Việt trong Excel. Lưới an toàn dữ liệu cho nông dân (tự lưu dữ liệu của mình).
+- ✅ **PoC KB từ video YouTube (Phase 10)** — Edge Function `kb-from-video`: whitelist `video_sources` (điểm tin cậy) → AI tóm tắt/trích cấu trúc → **đối chiếu chéo với KB** (cờ conflict) → chỉ ghi `raw_articles` **draft** (chưa vào AI), admin duyệt mới published. Bảo vệ: chỉ kênh credibility≥2 mới được đưa vào. *(Chạy được qua transcript client gửi; cần thêm nguồn kênh uy tín thật.)*
 - 🔲 **Thu phí tự động** (Momo/Stripe) cho gói Pro — hiện admin bật thủ công.
 
 ### Giai đoạn 100–1000 user
@@ -119,3 +120,29 @@ SELECT * FROM public.gardens WHERE deleted_at IS NOT NULL;
 UPDATE public.gardens SET deleted_at = NULL WHERE id = <id>;
 ```
 (Chỉ admin/service-role chạy được vì user chỉ SELECT thấy row còn hoạt động.)
+
+---
+
+## 🧠 Nguồn tri thức cho Bác sĩ AI (KB) — Phase 10
+
+### Pipeline hiện tại
+```
+Crawler (RSS) → raw_articles (draft) ─┐
+Admin nhập tay                            ├─→ kb_entries (published) → AI RAG
+kb-from-video (YouTube) → draft ──────────┘
+```
+
+### Quy tắc kiểm chứng (chống nội dung sai)
+1. **Chỉ nguồn whitelist**: bảng `video_sources` (credibility 0–3). Chỉ kênh **≥2** (đáng tin) mới được đưa vào.
+2. **Đối chiếu chéo**: function `kb-from-video` so nội dung với `kb_entries` đã duyệt → cờ `conflict` nếu hoạt chất mâu thuẫn.
+3. **Chỉ ghi draft**: tuyệt đối không đưa trực tiếp vào AI; admin/expert duyệt mới `published`.
+4. **Hoạt chất/liều lượng**: nếu video nêu nhưng không chắc → gắn cờ "cần xác minh", không tự tin.
+
+### Cách dùng kb-from-video
+1. Client bóc transcript (youtube-transcript-api) → gọi `functions.invoke('kb-from-video', {videoId, channelName, transcript, videoTitle})`.
+2. Kết quả → `raw_articles` draft + `conflict`/`crossSource` → admin xem & duyệt trong KBAdmin.
+
+### Việc cần làm tiếp (khi quyết định mở rộng)
+- 🔲 Thêm kênh uy tín thật vào `video_sources` (viện/trường/khuyến nông) + xác minh tổ chức.
+- 🔲 Tầng 3: **pgvector embedding** → tìm kiếm ngữ nghĩa thay vì lọc theo loại cây.
+- 🔲 Tầng 2 đầy đủ: AI trích `raw_articles` (web) → `kb_entries` chuẩn tự động (giảm duyệt thủ công).
