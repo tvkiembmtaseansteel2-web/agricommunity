@@ -10,6 +10,7 @@
 CREATE TABLE IF NOT EXISTS public.video_sources (
     id BIGSERIAL PRIMARY KEY,
     channel_name TEXT NOT NULL,          -- Tên kênh
+    channel_key TEXT,                    -- Khóa ASCII (không dấu) để khớp whitelist, tránh lỗi encoding tiếng Việt
     channel_url TEXT,                    -- Link kênh
     organization TEXT,                   -- Tổ chức chủ kênh (WASI, ĐH Nông Lâm, khuyến nông...)
     credibility_score INT NOT NULL DEFAULT 2, -- 0=không rõ, 1=thương mại (thấp), 2=uy tín, 3=chính thống (viện/trường)

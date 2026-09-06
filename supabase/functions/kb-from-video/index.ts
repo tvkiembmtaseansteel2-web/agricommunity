@@ -29,17 +29,18 @@ Deno.serve(async (req) => {
   let body;
   try { body = await req.json(); } catch (e) { return json({ error: 'Body không hợp lệ.' }, 400); }
 
-  const { videoId, channelName, transcript, videoTitle } = body;
+  const { videoId, channelName, transcript, videoTitle, channelKey } = body;
   if (!videoId || !transcript) return json({ error: 'Thiếu videoId hoặc transcript.' }, 400);
 
   const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, { auth: { persistSession: false } });
 
   // 1) Tìm kênh trong whitelist (bắt buộc phải có để đảm bảo nguồn tin cậy)
-  // Client truyền channelName; ta tra bảng video_sources.
+  // Khớp theo channel_key (ASCII) để tránh lỗi encoding dấu tiếng Việt; client truyền channelKey.
   let source = null;
-  if (channelName) {
+  const key = (channelKey || channelName || '').toString().toLowerCase().trim();
+  if (key) {
     const { data } = await db.from('video_sources')
-      .select('*').ilike('channel_name', `%${channelName}%`).eq('enabled', true).limit(1).maybeSingle();
+      .select('*').ilike('channel_key', `%${key}%`).eq('enabled', true).limit(1).maybeSingle();
     source = data || null;
   }
   const credibility = source?.credibility_score ?? 0;
