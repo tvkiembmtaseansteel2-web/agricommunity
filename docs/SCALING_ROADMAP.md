@@ -145,7 +145,12 @@ Admin nhập tay ───────────────┘
   - Lưu ý: pgvector hiện tại giới hạn index ≤2000 chiều → vector 3072 **không tạo index** (quét tuần tự, đủ nhanh cho KB vài nghìn mục).
 - **`fetchKnowledge`** (client) giờ gọi `kb-embed search` (ngữ nghĩa) trước; fallback lọc theo loại cây nếu lỗi/không có embedding.
 - Verify: backfill 17/17; search "Cà phê bị rỉ sắt đốm lá vàng" → rỉ sắt 85%/81%/81%.
-- Khi thêm kb_entries mới: chạy `kb-embed {action:'backfill'}` để tạo embedding cho mục đó.
+
+### Cron KB tự động ✅
+- **`kb-ingest-daily`**: 07:00 hằng ngày (pg_cron) — trích `raw_articles` → `kb_entries` **+ tự tạo embedding inline** khi publish (không cần backfill tay).
+- **`kb-crawler-weekly`**: 06:00 thứ 2 — crawler RSS nguồn mới → `raw_articles`.
+- Cả 2 gọi qua header `x-crawler-secret` = `CRAWLER_SECRET` (giống kb-crawler); `kb-ingest` `verify_jwt=false` + tự xác thực secret.
+- **Kết quả: KB tự cập nhật mỗi ngày** khi có nguồn mới (không cần thao tác tay).
 
 ### Quy tắc kiểm chứng (chống nội dung sai)
 1. **Chỉ nguồn whitelist**: bảng `video_sources` (credibility 0–3). Chỉ kênh **≥2** (đáng tin) mới được đưa vào.
