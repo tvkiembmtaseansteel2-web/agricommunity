@@ -860,7 +860,7 @@ ${response.symptoms && response.symptoms.length ? `**👀 Dấu hiệu nhận bi
 ${response.symptoms.map(s => `• ${s}`).join('\n')}
 
 ` : ''}**🛠️ Quy trình xử lý:**
-${response.protocol.map((step, i) => `${i+1}. ${step}`).join('\n')}
+${(response.protocol && response.protocol.length ? response.protocol : ['Chưa rõ quy trình cụ thể — liên hệ kỹ sư khuyến nông để được tư vấn.']).map((step, i) => `${i+1}. ${step}`).join('\n')}
 
 **🧪 Hoạt chất khuyên dùng:** ${response.active_ingredients}
 
