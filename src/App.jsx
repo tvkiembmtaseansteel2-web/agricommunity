@@ -94,10 +94,36 @@ function sessionSignature(messages) {
   return (firstUser.text || '').trim().replace(/\s+/g, ' ').slice(0, 60) || 'Trống';
 }
 
+// Nén ảnh (file) về base64 JPEG nhỏ — tránh lỗi "image too large" khi gửi lên Gemini.
+// maxSize: kích thước cạnh dài tối đa (px); quality: chất lượng JPEG (0..1).
+function compressImage(file, maxSize = 800, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Không đọc được file'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('File không phải ảnh hợp lệ'));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxSize) {
+          height = Math.round(height * maxSize / width);
+          width = maxSize;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // Số ngày trôi qua từ một ngày (YYYY-MM-DD) → hôm nay (chuẩn hoá đầu ngày địa phương).
 // Dùng cho hiển thị nhật ký "X ngày trước" — căn cứ cho Bác sĩ AI phân tích.
 function daysFromDate(dateStr) {
-  if (!dateStr) return null;
+  if (!dateStr) return null;  if (!dateStr) return null;
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return null;
   const startLog = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -1042,12 +1068,16 @@ ${response.export_warning}
     }
     let loaded = 0;
     selected.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
+      // Nén ảnh nhỏ trước khi gửi (tránh lỗi "image too large" của Gemini)
+      compressImage(file, 800, 0.72).then((b64) => {
         loaded++;
-        setChatImages(prev => prev.length < 3 ? [...prev, reader.result] : prev);
-      };
-      reader.readAsDataURL(file);
+        setChatImages(prev => prev.length < 3 ? [...prev, b64] : prev);
+      }).catch((err) => {
+        console.warn('Không nén được ảnh, dùng gốc:', err);
+        const reader = new FileReader();
+        reader.onload = () => { loaded++; setChatImages(prev => prev.length < 3 ? [...prev, reader.result] : prev); };
+        reader.readAsDataURL(file);
+      });
     });
   };
 
