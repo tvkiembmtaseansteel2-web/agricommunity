@@ -1,31 +1,26 @@
 -- ============================================================
--- AgriCommunity — pg_cron: lên lịch chạy crawler KB (PRD Mục 3.2)
--- Mỗi thứ 2 hàng tuần lúc 06:00. Dùng pg_net.http_post để gọi Edge Function.
--- Cách dùng: Supabase Dashboard → SQL Editor → dán → Run
+-- AgriCommunity — pg_cron: lên lịch KB (ĐÃ CHẠY trên Production)
+-- ============================================================
+-- 2 job đang chạy (đã schedule qua Management API, secret CRAWLER_SECRET đặt qua CLI):
+--   • kb-crawler-weekly: 06:00 thứ 2 hàng tuần — crawler RSS nguồn mới → raw_articles
+--   • kb-ingest-daily:   07:00 hằng ngày     — trích raw_articles → kb_entries + tạo embedding (pgvector)
+-- Cả 2 dùng chung header x-crawler-secret = CRAWLER_SECRET (không lộ trong repo).
+--
+-- Cách kiểm tra:  select jobid, jobname, schedule, command from cron.job;
+-- Cách thêm lại nếu reset (thay <CRAWLER_SECRET> bằng giá trị thật):
 -- ============================================================
 
--- 1. Bật extensions (nếu chưa)
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- 2. Lên lịch chạy crawler
---    Thay <SUPABASE_URL> bằng URL project (bọc trong $$...$$ string literal nếu dùng cron)
---    Cách gọi: POST https://<SUPABASE_URL>/functions/v1/kb-crawler
---    ⚠️ PHẢI truyền header 'x-crawler-secret' = giá trị đã đặt qua: supabase secrets set CRAWLER_SECRET=<mật khẩu mạnh>
+-- Crawler mỗi tuần (thứ 2 06:00)
 SELECT cron.schedule(
-  'kb-crawler-weekly',
-  '0 6 * * 1',  -- 06:00 thứ 2 mỗi tuần
-  $$
-  SELECT net.http_post(
-    url := 'https://gjavupiyrnuwtersagnw.supabase.co/functions/v1/kb-crawler',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'x-crawler-secret', '<THAY_BANG_CRAWLER_SECRET_CUA_BAN>'
-    ),
-    body := '{}'::jsonb
-  ) AS status_code;
-  $$
+  'kb-crawler-weekly', '0 6 * * 1',
+  $$SELECT net.http_post(url := 'https://gjavupiyrnuwtersagnw.supabase.co/functions/v1/kb-crawler', headers := jsonb_build_object('Content-Type','application/json','x-crawler-secret','<CRAWLER_SECRET>'), body := '{}'::jsonb);$$
 );
 
--- 3. Kiểm tra
--- select jobid, jobname, schedule, command from cron.job;
+-- Ingest + embedding mỗi ngày (07:00)
+SELECT cron.schedule(
+  'kb-ingest-daily', '0 7 * * *',
+  $$SELECT net.http_post(url := 'https://gjavupiyrnuwtersagnw.supabase.co/functions/v1/kb-ingest', headers := jsonb_build_object('Content-Type','application/json','x-crawler-secret','<CRAWLER_SECRET>'), body := '{"limit":30}'::jsonb);$$
+);

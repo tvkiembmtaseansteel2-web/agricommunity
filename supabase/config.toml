@@ -21,8 +21,9 @@ verify_jwt = true
 enabled = true
 
 [functions.kb-ingest]
-# Chỉ admin gọi (verify_jwt=true) — tự động trích raw_articles → kb_entries (Tầng 2).
-verify_jwt = true
+# verify_jwt=false: pg_cron (nội bộ) gọi định kỳ — function TỰ xác thực bằng
+# header `x-crawler-secret` (CRAWLER_SECRET) như kb-crawler. Tạo embedding ngay khi publish.
+verify_jwt = false
 enabled = true
 
 [functions.kb-embed]

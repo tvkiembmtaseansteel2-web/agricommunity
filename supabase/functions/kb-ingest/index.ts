@@ -15,6 +15,10 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE = Deno.env.get('GEMINI_PROXY_SERVICE_ROLE');
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') || 'gemini-3.1-flash-lite';
+const EMBED_MODEL = 'gemini-embedding-001';
+const EMBED_DIMS = 3072;
+// Bí mật dùng chung với kb-crawler: cho phép pg_cron/gọi nội bộ chạy ingest định kỳ.
+const CRAWLER_SECRET = Deno.env.get('CRAWLER_SECRET');
 
 // Bệnh/dinh dưỡng theo từng cây → helpers validate
 const VALID_PLANT = ['cafe', 'sau_rieng', 'ho_tieu', 'chung'];
@@ -26,6 +30,11 @@ Deno.serve(async (req) => {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE || !GEMINI_API_KEY) {
     return json({ error: 'Thiếu cấu hình server.' }, 500);
   }
+
+  // Xác thực: pg_cron gọi với x-crawler-secret (như kb-crawler); admin gọi qua UI kèm secret.
+  if (!CRAWLER_SECRET) return json({ error: 'CRAWLER_SECRET chưa cấu hình.' }, 503);
+  const provided = req.headers.get('x-crawler-secret') || req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+  if (provided !== CRAWLER_SECRET) return json({ error: 'Sai hoặc thiếu x-crawler-secret.' }, 401);
 
   const body = await req.json().catch(() => ({}));
   const limit = Math.min(Number(body?.limit) || 10, 50); // số bài xử lý mỗi lần
@@ -125,7 +134,40 @@ ${(art.raw_content || '').slice(0, 9000)}`;
 
   if (insErr) throw new Error('Không ghi kb_entries: ' + insErr.message);
 
-  return { raw_id: art.id, ok: true, kb_id: ins.id, status, confidence, problem: parsed.problem_name };
+  // Tạo embedding (pgvector) cho mục mới để tìm kiếm ngữ nghĩa dùng được ngay.
+  // Chỉ cần cho published (vào AI); draft vẫn chờ duyệt.
+  let embedded = false;
+  if (status === 'published') {
+    try {
+      const text = [
+        parsed.problem_name, parsed.scientific_name, parsed.symptoms_description,
+        parsed.farming_method, parsed.biological_method,
+        Array.isArray(parsed.active_ingredients) ? parsed.active_ingredients.join(', ') : '',
+        parsed.dosage_notes,
+      ].filter(Boolean).join('. ').slice(0, 2000);
+      const vec = await embedText(text);
+      if (vec) {
+        const { error: e2 } = await db.from('kb_entries').update({ embedding: vec }).eq('id', ins.id);
+        embedded = !e2;
+      }
+    } catch (e) { console.error('embed lỗi:', e.message); }
+  }
+
+  return { raw_id: art.id, ok: true, kb_id: ins.id, status, confidence, problem: parsed.problem_name, embedded };
+}
+
+// Gọi Gemini tạo embedding (3072 chiều) → trả về chuỗi "[...]" để lưu vector
+async function embedText(text) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${EMBED_MODEL}:embedContent?key=${GEMINI_API_KEY}`;
+  const res = await fetch(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: `models/${EMBED_MODEL}`, content: { parts: [{ text }] } }),
+  });
+  if (!res.ok) { console.error('embed HTTP', res.status); return null; }
+  const d = await res.json();
+  const vals = d?.embedding?.values;
+  if (!vals || vals.length !== EMBED_DIMS) return null;
+  return '[' + vals.join(',') + ']';
 }
 
 function json(obj, status = 200) {
