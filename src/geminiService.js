@@ -269,8 +269,12 @@ Quy tắc BẮT BUỘC:
     if (quota) parsed.__quota = quota;
     return parsed;
   } catch (error) {
+    // Trích lỗi thực từ FunctionsHttpError (context chứa body trả về của edge function)
+    const ctxMsg = error?.context?.message || error?.message || '';
+    const isLimit = ctxMsg.includes('limit_reached') || ctxMsg.includes('hết lượt');
+    const isTooLarge = ctxMsg.includes('quá lớn') || ctxMsg.includes('Payload quá lớn') || ctxMsg.includes('413');
     // Hết lượt AI (edge function trả 429 limit_reached) → trả object có cờ limit_reached
-    if (error?.message === 'limit_reached' || (error?.context?.message || '').includes('limit_reached')) {
+    if (isLimit) {
       return {
         limit_reached: true,
         diagnosis: 'Bạn đã dùng hết lượt AI hôm nay.',
@@ -279,6 +283,13 @@ Quy tắc BẮT BUỘC:
       };
     }
     console.error('Lỗi khi gọi Gemini API:', error);
+    // Ảnh quá lớn → hướng dẫn nén/gửi ít ảnh hơn thay vì fallback mơ hồ
+    if (isTooLarge) {
+      return {
+        diagnosis: 'Ảnh gửi lên quá lớn. Vui lòng giảm số ảnh (tối đa 3) hoặc chụp ảnh rõ nét hơn để AI phân tích.',
+        explanation: 'Ảnh quá nặng khiến AI không nhận được. Hãy chụp cận cảnh vết bệnh, ít ảnh hơn.',
+      };
+    }
     // Fallback sang mock chẩn đoán nếu API gặp lỗi mạng/key sai
     return {
       ...mockDiagnose(userMessage, imageBase64),

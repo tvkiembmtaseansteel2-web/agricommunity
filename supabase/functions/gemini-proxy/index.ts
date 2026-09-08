@@ -112,8 +112,8 @@ Deno.serve(async (req) => {
   }
 
   const rawSize = JSON.stringify(body).length;
-  if (rawSize > 6 * 1024 * 1024) {
-    return json({ error: 'Payload quá lớn (tối đa ~6MB).' }, 413);
+  if (rawSize > 8 * 1024 * 1024) {
+    return json({ error: 'Payload quá lớn (tối đa ~8MB).', rawSize }, 413);
   }
 
   const model = GEMINI_MODEL;
