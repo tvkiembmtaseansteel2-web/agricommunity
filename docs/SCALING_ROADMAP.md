@@ -166,3 +166,46 @@ Admin nhập tay ───────────────┘
 - 🔲 Thêm kênh uy tín thật vào `video_sources` (viện/trường/khuyến nông) + xác minh tổ chức.
 - 🔲 Tự động chạy `kb-embed backfill` khi có kb_entries mới (cron mỗi ngày) — hiện chạy tay.
 - 🔲 Lên KB lớn (>vài nghìn mục): cần model embedding ≤2000 chiều hoặc pgvector bản mới để tạo index.
+
+---
+
+## 🤖 Bác sĩ AI hoạt động như thế nào (đã ổn định)
+
+```
+Người dùng: chụp/tải ảnh lá cây (tối đa 3) + mô tả ("cây bị...")
+    ↓
+[1] App nén ảnh (800px / JPEG 0.72) → base64
+    ↓
+[2] Gọi Edge Function `gemini-proxy` (CORS ✓, key server-side, check quota free=5/pro=100)
+    ↓
+[3] Song song:
+    • `kb-embed search` (pgvector) → tìm KB liên quan theo NGỮ NGHĨA
+    • `fetchMRLForCrop` → dữ liệu MRL (cảnh báo chất cấm/hạn chế)
+    ↓
+[4] Gemini nhận prompt = mô tả + KB + MRL + nhật ký vườn + ảnh → trả JSON chẩn đoán
+    ↓
+[5] App render: cây nhận diện, confidence, chẩn đoán, quy trình, hoạt chất, cảnh báo xuất khẩu
+    (bảo vệ nếu Gemini thiếu protocol/symptoms → fallback; nếu hết lượt/ảnh lớn → báo rõ)
+```
+
+**Các lớp bảo vệ** (đã xử lý qua chuỗi sự cố):
+- Nén ảnh (tránh "image too large").
+- `response.protocol` có thể undefined → fallback (tránh crash `.map`).
+- **CORS preflight (OPTIONS)** cho `gemini-proxy` + `kb-embed` — chống browser chặn cross-origin.
+- Error detail được forward → UI hiển thị rõ lý do thay vì "Chạy ngoại tuyến" mơ hồ.
+
+---
+
+## 🔑 QUY TRÌNH PHÁT TRIỂN BẮT BUỘC (test local trước khi lên Netlify)
+
+**Mọi thay đổi/cập nhật: test & chạy ổn định trên LOCAL trước, rồi mới deploy Netlify.**
+
+1. `npm run dev` (local) → kiểm tra thủ công, đặc biệt **Bác sĩ AI** (đủ 3 ảnh, mọi fallback) + chức năng vừa sửa.
+2. `npm run build` → pass.
+3. `npm test` (Vitest) → pass; `npx playwright test` (E2E) → pass.
+4. Nếu đổi Edge Function → `supabase functions deploy <fn>` (test trước trên môi trường).
+5. Chỉ khi tất cả xanh → `netlify-cli deploy --prod` (hoặc push GitHub → CI).
+6. Sau deploy → **smoke test production** (đăng nhập, Bác sĩ AI, một luồng chính).
+
+> ⚠️ KHÔNG deploy trực tiếp khi chưa test local — tránh lặp lại chuỗi lỗi CORS/crash/size ảnh trước đây.
+> Lưu ý đặc biệt cho Bác sĩ AI: chỉ cần chạy 1 bài test local đúng luồng (ảnh + prompt) là đủ để bắt lỗi trước khi lên Netlify.

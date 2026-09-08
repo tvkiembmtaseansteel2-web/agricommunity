@@ -340,8 +340,19 @@ Quyết định deploy Production khi:
 
 Quy trình (thực tế, không có staging):
 ```
-main (GitHub) ── push ──> CI Actions (test+build) ──> deploy dist (Netlify CLI) ──> smoke test ──> monitor
+local (test + build + smoke) ──> commit ──> push GitHub ──> CI Actions (test+build) ──> deploy dist (Netlify CLI) ──> smoke test production ──> monitor
 ```
+
+> ### 🔑 QUY TRÌNH BẮT BUỘC — TEST LOCAL TRƯỚC KHI LÊN NETLIFY
+> Mọi thay đổi/cập nhật phải **chạy & test ổn định trên LOCAL trước** rồi mới deploy lên Netlify:
+> 1. `npm run dev` (local) → kiểm tra thủ công các luồng, đặc biệt **Bác sĩ AI** (đủ 3 ảnh, fallback khi lỗi) và chức năng vừa sửa.
+> 2. `npm run build` → pass (không lỗi, bundle ổn).
+> 3. `npm test` (Vitest) → pass; `npx playwright test` (E2E) → pass.
+> 4. `supabase functions deploy` cho các Edge Function đổi (nếu có) — test trên môi trường trước.
+> 5. Chỉ khi tất cả xanh mới `netlify-cli deploy --prod` (hoặc push GitHub → CI).
+> 6. Sau deploy: **smoke test production** (đăng nhập, AI Doctor, một chức năng chính).
+>
+> ⚠️ KHÔNG deploy trực tiếp khi chưa test local — tránh lỗi CORS/crash/size ảnh như chuỗi sự cố trước.
 
 **Production Smoke Test sau deploy:**
 - [x] Homepage (load + thời tiết thật).
