@@ -271,6 +271,7 @@ Quy tắc BẮT BUỘC:
   } catch (error) {
     // Trích lỗi thực từ FunctionsHttpError (context chứa body trả về của edge function)
     const ctxMsg = error?.context?.message || error?.message || '';
+    const ctxDetail = error?.context?.detail || '';
     const isLimit = ctxMsg.includes('limit_reached') || ctxMsg.includes('hết lượt');
     const isTooLarge = ctxMsg.includes('quá lớn') || ctxMsg.includes('Payload quá lớn') || ctxMsg.includes('413');
     // Hết lượt AI (edge function trả 429 limit_reached) → trả object có cờ limit_reached
@@ -288,6 +289,13 @@ Quy tắc BẮT BUỘC:
       return {
         diagnosis: 'Ảnh gửi lên quá lớn. Vui lòng giảm số ảnh (tối đa 3) hoặc chụp ảnh rõ nét hơn để AI phân tích.',
         explanation: 'Ảnh quá nặng khiến AI không nhận được. Hãy chụp cận cảnh vết bệnh, ít ảnh hơn.',
+      };
+    }
+    // Lỗi Gemini cụ thể (ví dụ 400 do ảnh/định dạng) → hiểu rõ hơn thay vì "Chạy ngoại tuyến"
+    if (ctxDetail) {
+      return {
+        diagnosis: 'AI gặp lỗi khi phân tích ảnh.',
+        explanation: `Chi tiết kỹ thuật: ${ctxDetail}`,
       };
     }
     // Fallback sang mock chẩn đoán nếu API gặp lỗi mạng/key sai

@@ -129,8 +129,14 @@ Deno.serve(async (req) => {
     const text = await upstream.text();
 
     if (!upstream.ok) {
-      console.error('gemini-proxy: Gemini upstream error', upstream.status, text.slice(0, 300));
-      return json({ error: `Gemini lỗi: ${upstream.status} ${upstream.statusText}` }, 502);
+      // Forward chi tiết lỗi Gemini để client hiển thị & chẩn đoán chính xác.
+      let detail = text;
+      try {
+        const j = JSON.parse(text);
+        detail = j?.error?.message || j?.error?.status || text.slice(0, 300);
+      } catch (e) { /* giữ nguyên text */ }
+      console.error('gemini-proxy: Gemini upstream error', upstream.status, text.slice(0, 400));
+      return json({ error: `Gemini lỗi: ${upstream.status}`, detail, raw_status: upstream.status }, 502);
     }
 
     // 8) GHI NHẬN LƯỢT CHỈ KHI THÀNH CÔNG (tăng request_count)
