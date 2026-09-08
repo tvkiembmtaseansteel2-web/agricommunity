@@ -890,11 +890,12 @@ ${response.export_warning}
       });
     } catch (err) {
       console.error(err);
-      // Error state thân thiện — không hiển thị lỗi kỹ thuật
+      // Error state thân thiện — tránh hiển thị lỗi kỹ thuật thô, nhưng ghi rõ để chẩn đoán
+      const errDetail = (err?.detail || err?.message || '').slice(0, 160);
       setChatMessages(prev => [...prev, {
         id: Date.now() + 1,
         sender: 'ai',
-        text: '⚠️ **Chưa kết nối được.**\n\nKiểm tra mạng rồi thử lại nhé. Nếu ảnh bị mờ, hãy chụp lại gần vết bệnh hơn.\n\n*Hoặc liên hệ kỹ sư khuyến nông địa phương.*',
+        text: `⚠️ **Không nhận được kết quả AI.**\n\nVui lòng thử lại sau vài giây. Nếu ảnh mờ, hãy chụp lại gần vết bệnh hơn.\n\n*Hoặc liên hệ kỹ sư khuyến nông địa phương.*${errDetail ? `\n\n<small>*Chi tiết: ${errDetail}*</small>` : ''}`,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }]);
     } finally {
