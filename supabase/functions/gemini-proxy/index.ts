@@ -18,6 +18,12 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE = Deno.env.get('GEMINI_PROXY_SERVICE_ROLE')!;
 
 Deno.serve(async (req) => {
+  // CORS preflight: browser gửi OPTIONS trước khi POST → phải trả 204 + CORS header,
+  // nếu không browser chặn ("Response to preflight request doesn't pass access control").
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders() });
+  }
+
   // 1) Chỉ nhận POST
   if (req.method !== 'POST') {
     return json({ error: 'Chỉ chấp nhận POST' }, 405);
@@ -166,6 +172,16 @@ Deno.serve(async (req) => {
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' },
+    headers: corsHeaders(),
   });
+}
+
+// CORS headers đầy đủ cho phép browser gọi cross-origin (netlify.app → supabase.co)
+function corsHeaders() {
+  return {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization, content-type, x-client-info, apikey',
+  };
 }

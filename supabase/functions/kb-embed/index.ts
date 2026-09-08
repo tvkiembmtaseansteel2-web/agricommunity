@@ -20,6 +20,10 @@ const EMBED_MODEL = 'gemini-embedding-001';
 const EMBED_DIMS = 3072;
 
 Deno.serve(async (req) => {
+  // CORS preflight (browser gọi cross-origin) — trả 204 + CORS header
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders() });
+  }
   if (req.method !== 'POST') return json({ error: 'Chỉ nhận POST' }, 405);
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE || !GEMINI_API_KEY) {
     return json({ error: 'Thiếu cấu hình server.' }, 500);
@@ -92,5 +96,15 @@ function buildText(r) {
 }
 
 function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' } });
+  return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
+}
+
+// CORS headers đầy đủ cho phép browser gọi cross-origin (netlify.app → supabase.co)
+function corsHeaders() {
+  return {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization, content-type, x-client-info, apikey',
+  };
 }
