@@ -139,6 +139,14 @@ Admin nhập tay ───────────────┘
 - Đánh dấu `raw_articles.status='ingested'` → không xử lý lại.
 - Đã chạy: từ 11 bài thô → **4 bài thành KB** (rỉ sắt, xì mủ, đất chua pH, đất chua). KB: 13 → **17 bản ghi**.
 
+### Tầng 3 — pgvector semantic search ✅
+- **`kb-embed`** Edge Function (verify_jwt): backfill embedding (`gemini-embedding-001`, 3072 chiều) cho `kb_entries`; `action=search` → generate embedding → `match_kb_similarity` → top-k gần nhất.
+- **pgvector** enabled: `kb_entries.embedding vector(3072)` + hàm `public.match_kb_similarity(query_embedding, match_count)` (cosine, chỉ published).
+  - Lưu ý: pgvector hiện tại giới hạn index ≤2000 chiều → vector 3072 **không tạo index** (quét tuần tự, đủ nhanh cho KB vài nghìn mục).
+- **`fetchKnowledge`** (client) giờ gọi `kb-embed search` (ngữ nghĩa) trước; fallback lọc theo loại cây nếu lỗi/không có embedding.
+- Verify: backfill 17/17; search "Cà phê bị rỉ sắt đốm lá vàng" → rỉ sắt 85%/81%/81%.
+- Khi thêm kb_entries mới: chạy `kb-embed {action:'backfill'}` để tạo embedding cho mục đó.
+
 ### Quy tắc kiểm chứng (chống nội dung sai)
 1. **Chỉ nguồn whitelist**: bảng `video_sources` (credibility 0–3). Chỉ kênh **≥2** (đáng tin) mới được đưa vào.
 2. **Đối chiếu chéo**: function `kb-from-video` so nội dung với `kb_entries` đã duyệt → cờ `conflict` nếu hoạt chất mâu thuẫn.
@@ -151,5 +159,5 @@ Admin nhập tay ───────────────┘
 
 ### Việc cần làm tiếp (khi quyết định mở rộng)
 - 🔲 Thêm kênh uy tín thật vào `video_sources` (viện/trường/khuyến nông) + xác minh tổ chức.
-- 🔲 Tầng 3: **pgvector embedding** → tìm kiếm ngữ nghĩa thay vì lọc theo loại cây.
-- 🔲 Tầng 2 đầy đủ: AI trích `raw_articles` (web) → `kb_entries` chuẩn tự động (giảm duyệt thủ công).
+- 🔲 Tự động chạy `kb-embed backfill` khi có kb_entries mới (cron mỗi ngày) — hiện chạy tay.
+- 🔲 Lên KB lớn (>vài nghìn mục): cần model embedding ≤2000 chiều hoặc pgvector bản mới để tạo index.
