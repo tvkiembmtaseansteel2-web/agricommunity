@@ -1,5 +1,6 @@
 // Tra cứu knowledge base bệnh cây (bảng kb_entries chuẩn hóa) → nhúng vào prompt (RAG-lite).
 // Giúp AI chẩn đoán DỰA TRÊN DỮ LIỆU thay vì dựa vào trí nhớ model.
+// Tầng 3: dùng pgvector (kb-embed search) để tìm theo NGỮ NGHĨA; fallback lọc theo loại cây.
 import { supabase } from './supabaseClient';
 
 // Nhận diện cây từ mô tả
@@ -11,13 +12,40 @@ const detectCrop = (text) => {
   return null;
 };
 
-// Truy vấn kiến thức liên quan (từ bảng kb_entries chuẩn hóa — PRD Mục 2)
+// Truy vấn kiến thức liên quan (ưu tiên pgvector ngữ nghĩa; fallback lọc theo cây)
 export const fetchKnowledge = async (userMessage) => {
   const crop = detectCrop(userMessage);
   if (!crop) return [];
 
+  // Thử semantic search qua kb-embed (nếu function có sẵn & không lỗi)
   try {
-    // Chỉ lấy dữ liệu đã duyệt (published)
+    const { data, error } = await supabase.functions.invoke('kb-embed', {
+      body: { action: 'search', text: userMessage, match_count: 4 }
+    });
+    if (!error && data?.ok && Array.isArray(data.results) && data.results.length > 0) {
+      // Chuyển về dạng giống fetchKnowledge (để formatKnowledge hiểu được)
+      return data.results.map(r => ({
+        plant_type: r.plant_type,
+        category: r.category,
+        target_part: null,
+        problem_name: r.problem_name,
+        scientific_name: r.scientific_name,
+        agents: null,
+        symptoms_description: r.symptoms_description,
+        severity_levels: null,
+        farming_method: null,
+        biological_method: null,
+        active_ingredients: r.active_ingredients || [],
+        dosage_notes: r.dosage_notes,
+        similarity: r.similarity,
+      }));
+    }
+  } catch (e) {
+    console.warn('pgvector search lỗi, fallback lọc cây:', e?.message || e);
+  }
+
+  // Fallback: lọc theo loại cây + đã duyệt (như cũ)
+  try {
     let query = supabase.from('kb_entries').select('*').eq('plant_type', crop).eq('status', 'published');
     query = query.order('id', { ascending: true }).limit(4);
     const { data } = await query;
