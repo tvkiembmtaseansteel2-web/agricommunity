@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
       __quota: { plan, used: newUsed, limit, remaining },
     }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' },
     });
   } catch (e) {
     console.error('gemini-proxy: fetch error', e.message);
