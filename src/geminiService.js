@@ -14,10 +14,24 @@ const hasRealAi = () => !!GEMINI_API_KEY && !IS_MOCK;
 // Gọi Gemini qua Edge Function (server giữ key) — an toàn cho Production.
 // Trả về { data, quota } với quota = { plan, used, limit, remaining } (nếu có).
 export const callGemini = async (contents, generationConfig = { responseMimeType: 'application/json' }) => {
+  // Kiểm tra payload size phía client trước (tránh gửi ảnh quá nặng lên làm hỏng)
+  const payload = { contents, generationConfig };
+  const rawSize = JSON.stringify(payload).length;
+  if (rawSize > 6 * 1024 * 1024) {
+    const err = new Error('payload_too_large');
+    err.detail = `Ảnh/quá lớn (~${Math.round(rawSize / 1024 / 1024)}MB). Hãy chụp ít ảnh hơn (tối đa 3) hoặc ảnh rõ nét hơn.`;
+    throw err;
+  }
   const { data, error } = await supabase.functions.invoke('gemini-proxy', {
-    body: { contents, generationConfig }
+    body: payload
   });
-  if (error) throw error;
+  if (error) {
+    // Chuẩn hóa lỗi: giữ message/detail/context để client hiển thị rõ lý do
+    const e = new Error(error?.message || 'Lỗi gọi AI');
+    e.detail = error?.context?.detail || error?.message || error?.context?.message || '';
+    e.context = error;
+    throw e;
+  }
   const quota = data?.__quota || null;
   return { data, quota };
 };
@@ -270,10 +284,10 @@ Quy tắc BẮT BUỘC:
     return parsed;
   } catch (error) {
     // Trích lỗi thực từ FunctionsHttpError (context chứa body trả về của edge function)
-    const ctxMsg = error?.context?.message || error?.message || '';
-    const ctxDetail = error?.context?.detail || '';
+    const ctxMsg = (error?.context?.message || error?.message || '') + ' ' + (error?.detail || '');
+    const ctxDetail = error?.detail || error?.context?.detail || '';
     const isLimit = ctxMsg.includes('limit_reached') || ctxMsg.includes('hết lượt');
-    const isTooLarge = ctxMsg.includes('quá lớn') || ctxMsg.includes('Payload quá lớn') || ctxMsg.includes('413');
+    const isTooLarge = ctxMsg.includes('quá lớn') || ctxMsg.includes('Payload quá lớn') || ctxMsg.includes('413') || error?.message === 'payload_too_large';
     // Hết lượt AI (edge function trả 429 limit_reached) → trả object có cờ limit_reached
     if (isLimit) {
       return {
