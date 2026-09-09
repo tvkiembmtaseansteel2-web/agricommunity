@@ -1546,27 +1546,41 @@ ${response.export_warning}
                 🌱 Hôm nay vườn cần làm gì?
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {/* Dựa trên thời tiết */}
-                {weather?.rain > 0 ? (
-                  <div style={{ background: '#fff3e0', border: '1px solid #ffe0b2', padding: '10px 12px', borderRadius: '10px', fontSize: '13px', color: '#e65100', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                    <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
-                    <div>
-                      <strong>🔴 Trời mưa — cần kiểm tra.</strong>
-                      <div style={{ marginTop: '2px' }}>Độ ẩm cao → nguy cơ nấm bệnh tăng. Kiểm tra vườn ở khu vực thấp, thoát nước kém.</div>
-                      <button className="btn btn-secondary" style={{ marginTop: '8px', padding: '8px', fontSize: '12px' }} onClick={() => setActiveTab('ai')}>
-                        🔍 Kiểm tra bằng Bác sĩ AI
-                      </button>
+                {/* 📣 Khuyến nghị theo THỜI TIẾT (Actionable Insights) — kết nối weatherAdvisor */}
+                {(() => {
+                  const advice = buildWeatherAdvice(weather);
+                  if (advice.length === 0) {
+                    return (
+                      <div style={{ background: '#e8f5e9', border: '1px solid #c8e6c9', padding: '10px 12px', borderRadius: '10px', fontSize: '13px', color: '#2e7d32', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                        <Check size={16} style={{ flexShrink: 0 }} />
+                        <div>
+                          <strong>🟢 Thời tiết thuận lợi.</strong>
+                          <div style={{ marginTop: '2px' }}>Có thể thăm vườn, ghi nhật ký hoặc phòng trừ sâu bệnh định kỳ.</div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return advice.map((t, i) => (
+                    <div key={i} style={{
+                      background: t.level === 'risk' ? '#fff3e0' : t.level === 'warn' ? '#fffde7' : '#e8f5e9',
+                      border: `1px solid ${t.level === 'risk' ? '#ffe0b2' : t.level === 'warn' ? '#ffe082' : '#c8e6c9'}`,
+                      padding: '10px 12px', borderRadius: '10px', fontSize: '13px',
+                      color: t.level === 'risk' ? '#b71c1c' : t.level === 'warn' ? '#8d6e00' : '#1b5e20',
+                      display: 'flex', gap: '8px', alignItems: 'flex-start'
+                    }}>
+                      <span style={{ flexShrink: 0 }}>{t.icon}</span>
+                      <div>
+                        <strong>{t.title}.</strong>
+                        <div style={{ marginTop: '2px' }}>{t.text}</div>
+                        {t.level !== 'good' && (
+                          <button className="btn btn-secondary" style={{ marginTop: '8px', padding: '7px 10px', fontSize: '12px' }} onClick={() => setActiveTab('ai')}>
+                            🔍 Kiểm tra bằng Bác sĩ AI
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div style={{ background: '#e8f5e9', border: '1px solid #c8e6c9', padding: '10px 12px', borderRadius: '10px', fontSize: '13px', color: '#2e7d32', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                    <Check size={16} style={{ flexShrink: 0 }} />
-                    <div>
-                      <strong>🟢 Thời tiết thuận lợi.</strong>
-                      <div style={{ marginTop: '2px' }}>Có thể thăm vườn, ghi nhật ký hoặc phòng trừ sâu bệnh định kỳ.</div>
-                    </div>
-                  </div>
-                )}
+                  ));
+                })()}
 
                 {/* 🔔 Công việc đề xuất theo TỪNG VƯỜN (rút gọn từ "Hiểu vườn") */}
                 {gardensList.length > 0 && (
