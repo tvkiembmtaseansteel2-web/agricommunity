@@ -30,6 +30,7 @@ import { analyzeCropDisease } from './geminiService';
 import { computeAllGardensHealth, computeTodayTasks, fmtDateShort } from './gardenHealth';
 import { toCSV, downloadCSV, fmtDateCSV, CSV_ACTIVITY, CSV_CROP } from './csvExport';
 import { fetchWeatherData, reverseGeocode, getCurrentPosition, coordsFromProfile, DEFAULT_LABEL } from './weatherService';
+import { buildWeatherAdvice } from './weatherAdvisor';
 import { resolveZoneFromGps, generateSampleZones } from './zoneService';
 import { computeAllZonesHealth, ISSUE_STATUS_LABELS } from './zoneHealth';
 import WeatherIcon from './WeatherIcon';
@@ -1485,18 +1486,47 @@ ${response.export_warning}
                     </div>
                     <div style={{ fontSize: '42px' }}><div className="wx-float"><WeatherIcon code={weather.code} isDay={weather.isDay !== false} size={56} /></div></div>
                   </div>
-                  <div className="weather-details">
-                    <span>💨 Gió: {weather.wind} km/h</span>
-                    <span>🌧️ Mưa hiện tại: {weather.rain} mm</span>
+                  {/* Chỉ số NÔNG NGHIỆP (Open-Meteo free) */}
+                  <div className="weather-details" style={{ flexWrap: 'wrap', gap: '6px 12px' }}>
+                    <span>💨 Gió: {weather.wind} km/h{weather.windDirLabel ? ` (${weather.windDirLabel})` : ''}</span>
+                    <span>🌧️ Mưa: {weather.rain} mm</span>
+                    {weather.soilMoisturePct != null && <span>💧 Đất: {weather.soilMoisturePct}%</span>}
+                    {weather.soilTemp != null && <span>🌡️ Đất: {weather.soilTemp}°C</span>}
+                    {weather.dewPoint != null && <span>🌙 Điểm sương: {weather.dewPoint}°C</span>}
+                    {weather.precipProb != null && <span>🌈 Mưa: {weather.precipProb}%</span>}
+                    {weather.uv != null && <span>☀️ UV: {weather.uv}</span>}
                   </div>
-                  {/* Khuyến nghị nông vụ theo thời tiết */}
-                  <div style={{ fontSize: '12px', background: 'rgba(255,255,255,0.15)', padding: '8px 12px', borderRadius: '6px', marginTop: '10px' }}>
-                    {weather.rain > 0
-                      ? '⚠️ Trời mưa ẩm: sầu riêng dễ thối rễ nấm hại. Tránh bón đạm hóa học sát gốc, hạn chế phun thuốc, kiểm tra thoát nước vườn.'
-                      : weather.temp >= 34
-                        ? '🔥 Trời nắng nóng: tăng cường tưới nước gốc (sáng sớm/chiều mát), che bớt nắng cho cây con, tránh phun thuốc giữa trưa.'
-                        : '🌤️ Điều kiện thời tiết thuận lợi cho thăm vườn, ghi nhật ký và phòng trừ sâu bệnh định kỳ.'}
+                  {/* Khuyến nghị nông vụ theo thời tiết — ACTIONABLE INSIGHTS */}
+                  <div style={{ fontSize: '12px', background: 'rgba(255,255,255,0.15)', padding: '10px 12px', borderRadius: '8px', marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {(() => {
+                      const tips = buildWeatherAdvice(weather);
+                      if (tips.length === 0) {
+                        return <div>🌤️ Điều kiện thuận lợi cho thăm vườn, ghi nhật ký và phòng trừ sâu bệnh định kỳ.</div>;
+                      }
+                      return tips.map((t, i) => (
+                        <div key={i} style={{ display: 'flex', gap: '7px', alignItems: 'flex-start', lineHeight: 1.4 }}>
+                          <span style={{ flexShrink: 0 }}>{t.icon}</span>
+                          <span>
+                            <strong style={t.level === 'risk' ? { color: '#ffd54f' } : t.level === 'warn' ? { color: '#ffecb3' } : {}}>{t.title}.</strong>{' '}
+                            {t.text}
+                          </span>
+                        </div>
+                      ));
+                    })()}
                   </div>
+                  {/* Dự báo 3 ngày tới */}
+                  {weather.forecast && weather.forecast.length > 0 && (
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
+                      {weather.forecast.map((f, i) => (
+                        <div key={i} style={{ flex: '1', minWidth: '90px', background: 'rgba(255,255,255,0.12)', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
+                          <div style={{ fontSize: '11px', opacity: 0.9 }}>{f.label}</div>
+                          <div style={{ fontSize: '20px', fontWeight: 700 }}>{f.tempMax}°</div>
+                          <div style={{ fontSize: '11px', opacity: 0.8 }}>{f.tempMin}°</div>
+                          <div style={{ fontSize: '12px' }}>{f.precipChance >= 50 ? `🌧️ ${f.precipChance}%` : f.precipChance >= 20 ? `🌦️ ${f.precipChance}%` : '☀️'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {weather.updatedAt && (
                     <div style={{ fontSize: '11px', opacity: 0.75, marginTop: '8px', textAlign: 'right' }}>
                       Cập nhật lúc {new Date(weather.updatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}

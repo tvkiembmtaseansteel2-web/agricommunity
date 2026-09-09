@@ -65,14 +65,16 @@ export const coordsFromProfile = (latitude, longitude) => {
 };
 
 /**
- * Gọi Open-Meteo (không cần API key) để lấy thời tiết hiện tại tại một tọa độ.
- * Trả về object chuẩn: { temp, humidity, wind, rain, desc, icon, updatedAt }.
+ * Gọi Open-Meteo (không cần API key) để lấy thời tiết hiện tại + các chỉ số NÔNG NGHIỆP.
+ * Trả về object chuẩn: { temp, humidity, wind, windDir, rain, desc, icon, updatedAt,
+ *   soilMoisture, soilTemp, dewPoint, uv, radiation, rainAccum, precipProb, forecast }.
  */
 export async function fetchWeatherData(latitude, longitude) {
   const res = await fetch(
     `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
-      `&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code,is_day` +
-      `&timezone=Asia%2FHo_Chi_Minh`
+      `&current=temperature_2m,relative_humidity_2m,dew_point_2m,precipitation,wind_speed_10m,wind_direction_10m,weather_code,is_day,soil_moisture_0_to_7cm,soil_temperature_0cm,shortwave_radiation,uv_index` +
+      `&daily=precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_direction_10m_dominant,uv_index_max,temperature_2m_max,temperature_2m_min,weather_code` +
+      `&timezone=Asia%2FHo_Chi_Minh&forecast_days=3`
   );
   if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
   const data = await res.json();
@@ -80,18 +82,61 @@ export async function fetchWeatherData(latitude, longitude) {
   if (!c) return null;
   const isDay = c.is_day === 1;
   const [desc, icon] = describeWeatherCode(c.weather_code, isDay);
+
+  // Dự báo 3 ngày tới (tối giản: ngày, max/min, khả năng mưa, mưa dự kiến)
+  const day = (i) => ({
+    date: data?.daily?.time?.[i] || null,
+    tempMax: Math.round(data?.daily?.temperature_2m_max?.[i] ?? 0),
+    tempMin: Math.round(data?.daily?.temperature_2m_min?.[i] ?? 0),
+    precipChance: Math.round(data?.daily?.precipitation_probability_max?.[i] ?? 0),
+    rainSum: Math.round((data?.daily?.precipitation_sum?.[i] ?? 0) * 10) / 10,
+    windMax: Math.round(data?.daily?.wind_speed_10m_max?.[i] ?? 0),
+    uvMax: Math.round(data?.daily?.uv_index_max?.[i] ?? 0),
+    code: data?.daily?.weather_code?.[i] ?? null,
+    label: data?.daily?.time?.[i] ? fmtDayDate(data.daily.time[i]) : '',
+  });
+
   return {
     temp: Math.round(c.temperature_2m),
     humidity: Math.round(c.relative_humidity_2m),
+    dewPoint: Math.round(c.dew_point_2m * 10) / 10,
     wind: Math.round(c.wind_speed_10m),
+    windDir: Math.round(c.wind_direction_10m ?? 0), // độ (0=Bắc, 90=Đông, 180=Nam, 270=Tây)
+    windDirLabel: windDirLabel(c.wind_direction_10m),
     rain: c.precipitation || 0,
     desc,
     icon,
     isDay,
-    code: c.weather_code, // mã WMO, dùng để dựng icon SVG nhiều lớp
-    // Đối chiếu cũng ghi nhận đây là "hiện tại" của Open-Meteo (cập nhật ~15 phút)
+    code: c.weather_code,
+    // Chỉ số NÔNG NGHIỆP (Open-Meteo miễn phí)
+    soilMoisture: c.soil_moisture_0_to_7cm ?? null, // m³/m³ (0..1)
+    soilMoisturePct: c.soil_moisture_0_to_7cm != null ? Math.round(c.soil_moisture_0_to_7cm * 100) : null,
+    soilTemp: c.soil_temperature_0cm != null ? Math.round(c.soil_temperature_0cm) : null,
+    uv: c.uv_index ?? null,
+    radiation: c.shortwave_radiation ?? null, // W/m²
+    // Mưa tích lũy hôm nay (mm)
+    rainAccum: Math.round((data?.daily?.precipitation_sum?.[0] ?? 0) * 10) / 10,
+    // Xác suất mưa hôm nay (%)
+    precipProb: Math.round(data?.daily?.precipitation_probability_max?.[0] ?? 0),
+    // Dự báo 3 ngày
+    forecast: [0, 1, 2].map(day),
     updatedAt: new Date().toISOString()
   };
+}
+
+// Hướng gió (độ) → hướng chữ (VN)
+function windDirLabel(deg) {
+  if (deg == null) return '';
+  const dirs = ['Bắc', 'Đông Bắc', 'Đông', 'Đông Nam', 'Nam', 'Tây Nam', 'Tây', 'Tây Bắc'];
+  return dirs[Math.round(deg / 45) % 8] || '';
+}
+
+// Định dạng ngày dự báo 'YYYY-MM-DD' → 'Thứ X, DD/MM'
+function fmtDayDate(d) {
+  if (!d) return '';
+  const dt = new Date(d + 'T12:00:00');
+  const wd = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][dt.getDay()];
+  return `${wd} ${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}`;
 }
 
 /**
