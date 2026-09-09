@@ -248,6 +248,10 @@ export default function App() {
 
   // Chế độ phân tích của Bác sĩ AI: 'myGarden' (vườn của nông dân) | 'other' (vùng/vườn khác)
   const [aiMode, setAiMode] = useState('myGarden');
+  // Bật/tắt bảng chọn vườn/khu (gọn, tối ưu màn hình chat)
+  const [showAiContext, setShowAiContext] = useState(false);
+  // Bật/tắt thử nghiệm nhanh bệnh mẫu
+  const [showAiQuick, setShowAiQuick] = useState(false);
 
   // Nút send: nhấn = gửi văn bản; NHẤN GIỮ ~2s = nhập thoại (Bác sĩ AI).
   const [aiVoiceOpen, setAiVoiceOpen] = useState(false);   // overlay thoại đang mở
@@ -1989,120 +1993,71 @@ ${response.export_warning}
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             
             <div className="card" style={{ paddingBottom: '12px' }}>
-              <div className="card-title" style={{ color: 'var(--primary-dark)' }}>
-                🤖 Trợ lý AI Bác sĩ cây trồng
-              </div>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                Chụp ảnh lá/thân/quả có dấu hiệu bất thường để AI hỗ trợ nhận diện sâu bệnh, thiếu chất
-                (sầu riêng, cà phê, hồ tiêu). Kết quả mang tính <strong>tham khảo</strong>, không thay thế kiểm tra thực tế của cán bộ kỹ thuật.
-              </p>
-
-              {/* 📊 Hạn mức AI / gói dịch vụ */}
-              {aiQuota && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
-                  background: aiQuota.remaining <= 0 ? '#fff3e0' : '#e8f5e9',
-                  border: `1px solid ${aiQuota.remaining <= 0 ? '#ffe0b2' : '#c8e6c9'}`,
-                  borderRadius: '10px', padding: '10px 12px', marginBottom: '10px',
-                }}>
-                  <div style={{ fontSize: '12px' }}>
-                    <span style={{ fontWeight: 700 }}>{aiQuota.remaining > 0 ? `🎫 Còn ${aiQuota.remaining} lượt AI hôm nay` : '🚫 Đã hết lượt AI hôm nay'}</span>
-                    <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>(
-                      {aiQuota.plan === 'pro' ? 'Gói Pro' : 'Gói miễn phí'} • đã dùng {aiQuota.used}/{aiQuota.limit}
-                    )</span>
+              {/* Thanh tiêu đề gọn — chat là trung tâm */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <div className="card-title" style={{ color: 'var(--primary-dark)', margin: 0 }}>
+                  🤖 Bác sĩ cây trồng AI
+                </div>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  {/* Phân tích cho: 2 chế độ gọn */}
+                  <div style={{ display: 'flex', background: 'var(--primary-light)', borderRadius: '20px', padding: '3px', gap: '2px' }}>
+                    <button type="button" onClick={() => setAiMode('myGarden')} style={{ padding: '6px 12px', border: 'none', borderRadius: '18px', cursor: 'pointer', fontSize: '12px', fontWeight: 700, background: aiMode === 'myGarden' ? 'white' : 'transparent', color: aiMode === 'myGarden' ? 'var(--primary-dark)' : 'var(--text-secondary)', boxShadow: aiMode === 'myGarden' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }} title="Bám nhật ký & vườn đã lưu">
+                      🌱 Vườn tôi
+                    </button>
+                    <button type="button" onClick={() => setAiMode('other')} style={{ padding: '6px 12px', border: 'none', borderRadius: '18px', cursor: 'pointer', fontSize: '12px', fontWeight: 700, background: aiMode === 'other' ? '#fff8e1' : 'transparent', color: aiMode === 'other' ? '#e65100' : 'var(--text-secondary)' }} title="Phân tích độc lập, không dùng nhật ký">
+                      🗺️ Vườn khác
+                    </button>
                   </div>
+                  <button type="button" className="btn btn-secondary" style={{ fontSize: '11px', padding: '6px 10px', flexShrink: 0 }} onClick={() => setChatMessages([WELCOME_MSG])} title="Bắt đầu cuộc trò chuyện mới">
+                    ✨ Mới
+                  </button>
+                </div>
+              </div>
+
+              {/* Hạn mức AI — dòng nhỏ gọn, không chiếm chỗ */}
+              {aiQuota && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                  <span title="Lượt AI còn lại hôm nay">{aiQuota.remaining > 0 ? `🎫 Còn ${aiQuota.remaining} lượt AI` : '🚫 Đã hết lượt AI'}</span>
+                  <span>· {aiQuota.plan === 'pro' ? 'Gói Pro' : 'Miễn phí'} · dùng {aiQuota.used}/{aiQuota.limit}</span>
                   {aiQuota.remaining <= 0 && (
-                    <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '12px', background: '#e65100', border: 'none', color: 'white' }} onClick={() => setActiveTab('profile')}>
-                      ⭐ Nâng cấp Pro
+                    <button className="btn btn-secondary" style={{ padding: '3px 8px', fontSize: '11px', background: '#e65100', border: 'none', color: 'white' }} onClick={() => setActiveTab('profile')}>
+                      ⭐ Nâng cấp
                     </button>
                   )}
                 </div>
               )}
 
-              {/* Chế độ phân tích: vườn của tôi (bám nhật ký) ↔ vùng/vườn khác (độc lập) */}
-              <div style={{ background: 'var(--primary-light)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', marginBottom: '12px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary-dark)', marginBottom: '8px' }}>
-                  🗺️ Đang phân tích cho:
+              {/* Lịch sử hội thoại (gọn, chỉ khi có nhiều phiên) */}
+              {chatSessions.length > 1 && (
+                <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', marginTop: '8px', paddingBottom: '2px' }}>
+                  {chatSessions.slice(0, -1).reverse().map((sess, idx) => {
+                    const sig = sessionSignature(sess);
+                    const isCurrent = sess === chatMessages;
+                    return (
+                      <button key={idx} type="button" onClick={() => setChatMessages(sess)} style={{ fontSize: '11px', padding: '5px 10px', borderRadius: '14px', whiteSpace: 'nowrap', border: '1px solid var(--border-color)', cursor: 'pointer', flexShrink: 0, background: isCurrent ? 'var(--primary-light)' : 'white', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                        📜 {sig || 'Trống'}
+                      </button>
+                    );
+                  })}
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setAiMode('myGarden')}
-                    style={{
-                      flex: 1, padding: '10px 8px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '13px',
-                      border: aiMode === 'myGarden' ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
-                      background: aiMode === 'myGarden' ? '#fff' : 'transparent',
-                      color: aiMode === 'myGarden' ? 'var(--primary-dark)' : 'var(--text-secondary)'
-                    }}
-                    title="Phân tích bám theo nhật ký & vườn đã lưu của bạn"
-                  >
-                    🌱 Vườn của tôi
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAiMode('other')}
-                    style={{
-                      flex: 1, padding: '10px 8px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '13px',
-                      border: aiMode === 'other' ? '2px solid var(--secondary-color)' : '1px solid var(--border-color)',
-                      background: aiMode === 'other' ? '#fff8e1' : 'transparent',
-                      color: aiMode === 'other' ? '#e65100' : 'var(--text-secondary)'
-                    }}
-                    title="Phân tích độc lập cho vùng/vườn khác — không dùng nhật ký của bạn"
-                  >
-                    🗺️ Vùng/Vườn khác
-                  </button>
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.5 }}>
-                  {aiMode === 'myGarden'
-                    ? <>🌱 AI sẽ đối chiếu <strong>nhật ký + vườn + khu</strong> đã lưu của bạn để phân tích & nhận diện đúng cây.</>
-                    : <>🗺️ AI phân tích <strong>độc lập</strong> cho vùng/vườn khác (hàng xóm, mẫu cây mang đến...) — <strong>không</strong> trộn nhật ký vườn của bạn, tránh nhầm lẫn.</>}
-                </div>
-              </div>
+              )}
 
-              {/* Lịch sử hội thoại + cuộc trò chuyện mới */}
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '12px' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ fontSize: '12px', padding: '8px 12px', flexShrink: 0 }}
-                  onClick={() => {
-                    setChatMessages([WELCOME_MSG]);
-                  }}
-                  title="Bắt đầu cuộc trò chuyện mới"
-                >
-                  ✨ Cuộc trò chuyện mới
-                </button>
-                {chatSessions.length > 1 && (
-                  <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', maxWidth: '100%', paddingBottom: '2px' }}>
-                    {chatSessions.slice(0, -1).reverse().map((sess, idx) => {
-                      const sig = sessionSignature(sess);
-                      const isCurrent = sess === chatMessages;
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setChatMessages(sess)}
-                          style={{
-                            fontSize: '11px', padding: '6px 10px', borderRadius: '14px', whiteSpace: 'nowrap',
-                            border: '1px solid var(--border-color)', cursor: 'pointer', flexShrink: 0,
-                            background: isCurrent ? 'var(--primary-light)' : 'white',
-                            color: 'var(--text-secondary)', fontWeight: 600
-                          }}
-                          title="Mở hội thoại này"
-                        >
-                          📜 {sig || 'Trống'}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* 📍 Xác định vị trí / Zone — Bác sĩ AI gắn với vườn & khu (Phase A) — chỉ khi phân tích VƯỜN CỦA TÔI */}
+              {/* 📍 Gắn vườn/khu (tùy chọn) — thu gọn để chat rộng rãi */}
               {aiMode === 'myGarden' && gardensList.length > 0 && (
-                <div style={{ background: 'var(--primary-light)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px', marginBottom: '12px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary-dark)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                    <MapPin size={15} /> Ghi nhận vấn đề cho khu vực nào?
+                <div style={{ background: 'var(--primary-light)', border: '1px solid var(--border-color)', borderRadius: '10px', marginBottom: '12px', overflow: 'hidden' }}>
+                  <div
+                    onClick={() => setShowAiContext(v => !v)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 12px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, color: 'var(--primary-dark)' }}
+                  >
+                    <MapPin size={15} /> Gắn vườn/khu để theo dõi vấn đề
+                    <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400 }}>
+                      {showAiContext ? '▲ thu gọn' : '▼ tùy chọn'}
+                    </span>
+                  </div>
+                  {showAiContext && (
+                  <div style={{ padding: '0 12px 12px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                    Không bắt buộc. Chọn vườn/khu để lưu chẩn đoán thành "vấn đề" theo dõi sau; bỏ qua nếu chỉ cần tư vấn.
                   </div>
 
                   {/* Chọn vườn */}
@@ -2191,6 +2146,8 @@ ${response.export_warning}
                       </div>
                     );
                   })()}
+                  </div>
+                  )}
                 </div>
               )}
 
@@ -2262,31 +2219,47 @@ ${response.export_warning}
               </div>
 
               {/* Chat Input */}
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="Mô tả triệu chứng bệnh ở đây..." 
-                  value={userQuery}
-                  onChange={e => setUserQuery(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && sendToAI(userQuery, chatImages)}
-                  disabled={aiLoading}
-                />
-                <button 
-                  className="btn btn-primary" 
-                  style={{ width: '50px', padding: '0', flexShrink: 0, userSelect: 'none', touchAction: 'none', background: sendHolding ? 'var(--primary-dark)' : undefined, transform: sendHolding ? 'scale(0.92)' : undefined, transition: 'all 0.15s' }}
-                  onPointerDown={handleSendPointerDown}
-                  onPointerUp={handleSendPointerUp}
-                  onPointerLeave={handleSendPointerLeave}
-                  onContextMenu={(e) => e.preventDefault()}
-                  disabled={aiLoading}
-                  title="Nhấn để gửi • Nhấn giữ 2 giây để nhập thoại"
-                >
-                  <Send size={18} />
-                </button>
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Send size={12} /> Nhấn để gửi • <span>nhấn giữ nút gửi ~2 giây để <strong>nhập thoại</strong></span>
+              <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-color)', padding: '10px 0 0', zIndex: 5 }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Mô tả triệu chứng bệnh (vd: cà phê bị đốm vàng)..."
+                    value={userQuery}
+                    onChange={e => setUserQuery(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && sendToAI(userQuery, chatImages)}
+                    disabled={aiLoading}
+                    style={{ minHeight: '48px', fontSize: '15px' }}
+                  />
+                  <button
+                    className="btn btn-primary"
+                    style={{ width: '54px', minHeight: '48px', padding: '0', flexShrink: 0, userSelect: 'none', touchAction: 'none', background: sendHolding ? 'var(--primary-dark)' : undefined, transform: sendHolding ? 'scale(0.92)' : undefined, transition: 'all 0.15s' }}
+                    onPointerDown={handleSendPointerDown}
+                    onPointerUp={handleSendPointerUp}
+                    onPointerLeave={handleSendPointerLeave}
+                    onContextMenu={(e) => e.preventDefault()}
+                    disabled={aiLoading}
+                    title="Nhấn để gửi • Nhấn giữ 2 giây để nhập thoại"
+                  >
+                    <Send size={20} />
+                  </button>
+                </div>
+                {/* Chụp ảnh + trợ lý thoại gọn */}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
+                  <label className="camera-box" style={{ flex: 1, padding: '11px', fontSize: '13px', minHeight: '44px', cursor: 'pointer' }}>
+                    <Camera size={18} />
+                    <span>{chatImages.length >= 3 ? 'Đã đủ 3 ảnh' : chatImages.length > 0 ? `Đã chọn ${chatImages.length}/3 — thêm` : 'Chụp ảnh lá cây (tối đa 3)'}</span>
+                    <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleChatImageChange} disabled={aiLoading || chatImages.length >= 3} />
+                  </label>
+                  {chatImages.length > 0 && (
+                    <button className="btn btn-secondary" style={{ padding: '10px 12px' }} onClick={() => setChatImages([])}>
+                      Xóa hết
+                    </button>
+                  )}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Send size={12} /> Nhấn để gửi • nhấn giữ nút gửi ~2 giây để <strong>nhập thoại</strong>
+                </div>
               </div>
 
               {/* Chụp ảnh lá cây gửi cho AI chẩn đoán (tối đa 3 ảnh) */}
@@ -2412,32 +2385,25 @@ ${response.export_warning}
               </div>
             )}
 
-            {/* Quick Test Scenarios */}
-            <div className="card">
-              <div className="card-title" style={{ fontSize: '15px' }}>📌 Thử nghiệm nhanh các bệnh hại mẫu</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <button 
-                  className="btn btn-secondary" 
-                  style={{ justifyContent: 'flex-start', fontSize: '13px', padding: '10px' }}
-                  onClick={() => handleQuickTest('sầu riêng', 'xì mủ thối gốc')}
-                >
+            {/* Quick Test Scenarios — mẫu thử nhanh (thu gọn để không rối) */}
+            <div className="card" style={{ padding: '0 12px' }}>
+              <div onClick={() => setShowAiQuick(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '12px 0', cursor: 'pointer', fontSize: '14px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                📌 Thử nghiệm nhanh bệnh mẫu
+                <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 400 }}>{showAiQuick ? '▲ ẩn' : '▼ xem'}</span>
+              </div>
+              {showAiQuick && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '12px' }}>
+                <button className="btn btn-secondary" style={{ justifyContent: 'flex-start', fontSize: '13px', padding: '10px' }} onClick={() => handleQuickTest('sầu riêng', 'xì mủ thối gốc')}>
                   🍈 Sầu riêng bị xì mủ thối gốc (Phytophthora)
                 </button>
-                <button 
-                  className="btn btn-secondary" 
-                  style={{ justifyContent: 'flex-start', fontSize: '13px', padding: '10px' }}
-                  onClick={() => handleQuickTest('cà phê', 'bột màu vàng rỉ sắt ở mặt dưới lá')}
-                >
+                <button className="btn btn-secondary" style={{ justifyContent: 'flex-start', fontSize: '13px', padding: '10px' }} onClick={() => handleQuickTest('cà phê', 'bột màu vàng rỉ sắt ở mặt dưới lá')}>
                   ☕ Cà phê bị bệnh rỉ sắt hại lá
                 </button>
-                <button 
-                  className="btn btn-secondary" 
-                  style={{ justifyContent: 'flex-start', fontSize: '13px', padding: '10px' }}
-                  onClick={() => handleQuickTest('hồ tiêu', 'vàng lá héo rũ chết nhanh')}
-                >
+                <button className="btn btn-secondary" style={{ justifyContent: 'flex-start', fontSize: '13px', padding: '10px' }} onClick={() => handleQuickTest('hồ tiêu', 'vàng lá héo rũ chết nhanh')}>
                   🌶️ Hồ tiêu bị vàng lá héo rũ chết nhanh
                 </button>
               </div>
+              )}
             </div>
 
           </div>
