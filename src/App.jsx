@@ -2218,8 +2218,30 @@ ${response.export_warning}
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Chat Input */}
-              <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-color)', padding: '10px 0 0', zIndex: 5 }}>
+              {/* Khu nhập liệu — gọn, không trùng lặp */}
+              <div>
+                {/* Xem trước ảnh đã chọn */}
+                {chatImages.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(chatImages.length, 3)}, 1fr)`, gap: '8px', marginBottom: '10px' }}>
+                    {chatImages.map((img, idx) => (
+                      <div key={idx} style={{ position: 'relative' }}>
+                        <img src={img} alt={`Ảnh lá ${idx + 1}`} className="chat-image-preview" style={{ width: '100%', height: '96px', objectFit: 'cover', borderRadius: '8px', marginBottom: 0 }} />
+                        <button
+                          onClick={() => removeChatImage(idx)}
+                          style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', borderRadius: '50%', width: '22px', height: '22px', fontSize: '11px', cursor: 'pointer', lineHeight: '22px', textAlign: 'center' }}
+                          aria-label={`Xóa ảnh ${idx + 1}`}
+                        >
+                          ✕
+                        </button>
+                        <div style={{ position: 'absolute', bottom: '4px', left: '6px', background: 'rgba(0,0,0,0.55)', color: 'white', fontSize: '10px', padding: '1px 7px', borderRadius: '6px' }}>
+                          {idx + 1}/3
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Hàng nhập: mô tả + nút gửi (giữ = thoại) */}
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
                   <input
                     type="text"
@@ -2244,76 +2266,25 @@ ${response.export_warning}
                     <Send size={20} />
                   </button>
                 </div>
-                {/* Chụp ảnh + trợ lý thoại gọn */}
+
+                {/* Chụp ảnh (1 lần duy nhất) + xóa hết */}
                 <div style={{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
-                  <label className="camera-box" style={{ flex: 1, padding: '11px', fontSize: '13px', minHeight: '44px', cursor: 'pointer' }}>
+                  <label className="camera-box camera-box--inline" style={{ flex: 1, minHeight: '44px', cursor: 'pointer' }}>
                     <Camera size={18} />
                     <span>{chatImages.length >= 3 ? 'Đã đủ 3 ảnh' : chatImages.length > 0 ? `Đã chọn ${chatImages.length}/3 — thêm` : 'Chụp ảnh lá cây (tối đa 3)'}</span>
                     <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleChatImageChange} disabled={aiLoading || chatImages.length >= 3} />
                   </label>
                   {chatImages.length > 0 && (
-                    <button className="btn btn-secondary" style={{ padding: '10px 12px' }} onClick={() => setChatImages([])}>
+                    <button className="btn btn-secondary" style={{ padding: '11px 12px' }} onClick={() => setChatImages([])}>
                       Xóa hết
                     </button>
                   )}
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Send size={12} /> Nhấn để gửi • nhấn giữ nút gửi ~2 giây để <strong>nhập thoại</strong>
-                </div>
-              </div>
 
-              {/* Chụp ảnh lá cây gửi cho AI chẩn đoán (tối đa 3 ảnh) */}
-              <div style={{ marginTop: '10px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <label className="camera-box" style={{ flex: 1, padding: '12px', fontSize: '13px' }}>
-                  <Camera size={18} />
-                  <span>{chatImages.length >= 3 ? 'Đã đủ 3 ảnh' : chatImages.length > 0 ? `Đã chọn ${chatImages.length}/3 — thêm nữa` : 'Chụp ảnh lá cây (tối đa 3)'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    style={{ display: 'none' }}
-                    onChange={handleChatImageChange}
-                    disabled={aiLoading || chatImages.length >= 3}
-                  />
-                </label>
-                {chatImages.length > 0 && (
-                  <button 
-                    className="btn btn-secondary" 
-                    style={{ width: 'auto', padding: '10px 12px' }}
-                    onClick={() => setChatImages([])}
-                  >
-                    Xóa hết
-                  </button>
-                )}
-              </div>
-              {/* Xem trước nhiều ảnh */}
-              {chatImages.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(chatImages.length, 3)}, 1fr)`, gap: '8px', marginTop: '8px' }}>
-                  {chatImages.map((img, idx) => (
-                    <div key={idx} style={{ position: 'relative' }}>
-                      <img src={img} alt={`Ảnh lá ${idx + 1}`} className="chat-image-preview" style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '8px' }} />
-                      <button
-                        onClick={() => removeChatImage(idx)}
-                        style={{ position: 'absolute', top: '3px', right: '3px', background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', borderRadius: '50%', width: '22px', height: '22px', fontSize: '11px', cursor: 'pointer', lineHeight: '22px', textAlign: 'center' }}
-                        aria-label={`Xóa ảnh ${idx + 1}`}
-                      >
-                        ✕
-                      </button>
-                      <div style={{ position: 'absolute', bottom: '3px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.55)', color: 'white', fontSize: '9px', padding: '1px 6px', borderRadius: '6px' }}>
-                        {idx + 1}
-                      </div>
-                    </div>
-                  ))}
+                {/* Gợi ý thao tác + mẹo chụp ảnh (1 dòng gọn) */}
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.5 }}>
+                  <Send size={11} /> Nhấn để gửi • giữ nút gửi ~2 giây để <strong>nhập thoại</strong> · 📸 Chụp gần vết bệnh, đủ sáng, cả <strong>mặt trên + dưới</strong> lá; gửi 2–3 ảnh giúp chẩn đoán chính xác hơn.
                 </div>
-              )}
-              {chatImages.length > 0 && (
-                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-dark)', background: 'var(--primary-light)', padding: '8px 12px', borderRadius: '8px', marginTop: '8px' }}>
-                  📸 Đã chọn {chatImages.length}/3 ảnh — gửi kèm mô tả ở trên để AI phân tích nhiều góc chính xác hơn.
-                </div>
-              )}
-              {/* Hướng dẫn chụp ảnh chuẩn để AI nhận diện tốt hơn */}
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.5 }}>
-                📸 <strong>Mẹo chụp ảnh chuẩn:</strong> chụp gần vết bệnh, đủ sáng, lấy cả <strong>mặt trên + mặt dưới</strong> lá, để rõ màu sắc và tơ/nấm. Gửi 2–3 ảnh (lá, thân, quả) giúp chẩn đoán chính xác hơn.
               </div>
             </div>
 

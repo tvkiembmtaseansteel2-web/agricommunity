@@ -573,6 +573,21 @@ body {
   background-color: #c8e6c9;
 }
 
+/* Biến thể gọn cho hàng nhập liệu Bác sĩ AI (nằm ngang, không bị dồn cột) */
+.camera-box--inline {
+  flex-direction: row;
+  justify-content: center;
+  padding: 11px 14px;
+  gap: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.camera-box--inline span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Community Feed */
 .feed-post {
   margin-bottom: 16px;
